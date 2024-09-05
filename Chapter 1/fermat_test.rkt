@@ -31,3 +31,12 @@
 
 ; (expmod 10 2 6)
 (fast-prime? 5 100)
+
+; カーマイケル数
+(fast-prime? 561 100)
+(fast-prime? 1105 100)
+(fast-prime? 1729 100)
+(fast-prime? 2465 100)
+(fast-prime? 2821 100)
+(fast-prime? 6601 100)
+
