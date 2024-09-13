@@ -39,7 +39,7 @@
 (define (width i)
 	(/ (- (upper-bound i) (lower-bound i)) 2))
 
-; 問題文が詳細ではない
+; 問題文が詳細ではない パーセント許容誤差の定義が不明
 (define (make-center-percent c p) ;center
 	(make-center-width c (/ (* c (/ p 100)) 2)))
 (define (percent i)
