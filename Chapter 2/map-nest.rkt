@@ -76,4 +76,25 @@
 	)
 )
 
-(prime-sum-pairs 3)
+(flatmap (lambda (x) (list (square x))) (enumerate-interval 1 5))
+(prime-sum-pairs 6)
+
+(define (permutations s)
+	(if (null? s)	; 集合は空か?
+		(list nil)	; 空集合を持つ列
+		(flatmap
+			(lambda (x)
+				(map (lambda (p) (cons x p))
+					(permutations (remove x s))))
+			s
+		)
+	)
+)
+
+(define (remove item sequence)
+	(filter
+		(lambda (x) (not (= x item)))
+		sequence)
+)
+
+(permutations (list 1 2 3))
