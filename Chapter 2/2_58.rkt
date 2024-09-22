@@ -1,4 +1,3 @@
-; mistake b
 ; 良問
 
 #lang racket
@@ -11,44 +10,24 @@
 )
 
 (define (deriv exp var)
+	(define (augend s)
+		(let ((len (length s)))
+			(if (<= len 1)
+				(car s)
+				(if (<= (length (cddr s)) 1)
+					(caddr s)
+					(cddr s)))
+		)
+		
+	)
+
 	(display exp) (newline)
 	(cond ((number? exp) 0)
 		  ((variable? exp)
 			(if (same-variable? exp var) 1 0))
-		  ; ()を探す 
-		;   ((include-bracket? exp)
-		;   	; (deriv (元の式 (()の式deriv)))
-		; 	(deriv 
-		; 		(map
-		; 			(lambda (x)
-		; 				(if (eq? (get-bracket exp) x)
-		; 					(deriv (get-bracket exp) var)
-		; 					x
-		; 				)
-		; 			)
-		; 			exp
-		; 		)
-		; 		var
-		; 	)
-		;   )
-		;   *を探す
-		  ((and (< 3 (length exp)) (include-product? exp))
-		  	; (deriv (元の式 (()の式deriv)))
-			(display "include product: true")
-			(deriv 
-				(make-without-product exp var (get-product exp))
-				var
-			)
-		  )
 		  ((sum? exp)
 			(make-sum (deriv (addend exp) var)
-					  (let ((augend-exp (augend exp)))
-					  	(display "augend-exp ") (display augend-exp) (newline)
-						(if (and (pair? augend-exp) (eq? (cadr augend-exp) 'make))
-							(car augend-exp)
-							(deriv augend-exp var)
-						)
-					  )
+					  (deriv (augend exp) var)
 			)
 		  )
 		  ((product? exp)
@@ -77,9 +56,6 @@
 	(and (pair? x) (not (null? (cdr x))) (eq? (cadr x) '+)))
 ; a change
 (define (addend s) (car s))
-(define (augend s)
-	(caddr s)
-)
 ; a change
 (define (product? x)
 	(and (pair? x) (not (null? (cdr x))) (eq? (cadr x) '*)))
@@ -182,15 +158,14 @@
 ; x + 3(x + y + 2)
 ; 4x + 3y + 6 -> 4
 ; a
-(display (deriv '(x + (3 * (x + (y + 2)))) 'x)) (newline)(newline)
-(display (deriv '(3 * (x + (y + 2))) 'x)) (newline) (newline) 
+; (display (deriv '(x + (3 * (x + (y + 2)))) 'x)) (newline)(newline)
+; (display (deriv '(3 * (x + (y + 2))) 'x)) (newline) (newline) 
 
 #|
 
 b
-全体から括弧の中身を計算
-全体から掛け算を計算
-全体から足し算を計算
+priority sum < product
+sumの被加数をderivしてあげる
 
 |#
 (display (deriv '(3 * x) 'x)) (newline) ; ->3になるべき
@@ -198,6 +173,7 @@ b
 (display (deriv '(3 * (x + y + 2)) 'x)) (newline) ; ->3になるべき
  (newline) 
 (display (deriv '(x + 3 * (x + y + 2)) 'x)) (newline)
+(display (deriv '(x + 3 * (x + y + 2) * (x + y + 2)) 'x)) (newline)
 
 ; 各パーツテスト
 ; (display (get-bracket '(x + 3 * (x + y + 2)))) (newline)
