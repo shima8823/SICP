@@ -1,6 +1,17 @@
+; mistake b
+; 良問
+
 #lang racket
 
+(define (length items)
+	(if (null? items)
+		0
+		(+ 1 (length (cdr items)))
+	)
+)
+
 (define (deriv exp var)
+	(display exp) (newline)
 	(cond ((number? exp) 0)
 		  ((variable? exp)
 			(if (same-variable? exp var) 1 0))
@@ -20,17 +31,26 @@
 		; 		var
 		; 	)
 		;   )
-		; ;   *を探す
-		;   ((include-product? exp)
-		;   	; (deriv (元の式 (()の式deriv)))
-		; 	(deriv 
-		; 		(make-without-product exp var (get-product exp))
-		; 		var
-		; 	)
-		;   )
+		;   *を探す
+		  ((and (< 3 (length exp)) (include-product? exp))
+		  	; (deriv (元の式 (()の式deriv)))
+			(display "include product: true")
+			(deriv 
+				(make-without-product exp var (get-product exp))
+				var
+			)
+		  )
 		  ((sum? exp)
 			(make-sum (deriv (addend exp) var)
-					  (deriv (augend exp) var)))
+					  (let ((augend-exp (augend exp)))
+					  	(display "augend-exp ") (display augend-exp) (newline)
+						(if (and (pair? augend-exp) (eq? (cadr augend-exp) 'make))
+							(car augend-exp)
+							(deriv augend-exp var)
+						)
+					  )
+			)
+		  )
 		  ((product? exp)
 			(make-sum
 				(make-product (multiplier exp)
@@ -54,7 +74,7 @@
 
 ; a change
 (define (sum? x)
-	(and (pair? x) (eq? (cadr x) '+)))
+	(and (pair? x) (not (null? (cdr x))) (eq? (cadr x) '+)))
 ; a change
 (define (addend s) (car s))
 (define (augend s)
@@ -62,7 +82,7 @@
 )
 ; a change
 (define (product? x)
-	(and (pair? x) (eq? (cadr x) '*)))
+	(and (pair? x) (not (null? (cdr x))) (eq? (cadr x) '*)))
 ; a change
 (define (multiplier p) (car p))
 (define (multiplicand p)
@@ -74,6 +94,8 @@
 )
 
 (define (make-sum a1 a2)
+	(display "make-sum ")
+	(display "a1: ") (display a1) (display " a2: ") (display a2) (newline)
 	(cond ((=number? a1 0) a2)
 		  ((=number? a2 0) a1)
 		  ((and (number? a1) (number? a2)) (+ a1 a2))
@@ -81,6 +103,8 @@
 (define (=number? exp num)
 	(and (number? exp) (= exp num)))
 (define (make-product m1 m2)
+	(display "make-product ")
+	(display "m1: ") (display m1) (display " m2: ") (display m2) (newline)
 	(cond ((or (=number? m1 0) (=number? m2 0)) 0)
 		  ((=number? m1 1) m2)
 		  ((=number? m2 1) m1)
@@ -103,7 +127,9 @@
 	(and (not (null? exp)) (or (pair? (car exp)) (include-bracket? (cdr exp))))
 )
 (define (include-product? exp)
-	(and (not (null? exp)) (or (product? (car exp)) (include-product? (cdr exp))))
+	(display "include produc: ")
+				(display exp) (newline)
+	(and (not (null? exp)) (or (product? exp) (include-product? (cdr exp))))
 )
 
 (define (get-bracket exp)
@@ -113,8 +139,8 @@
 	)
 )
 (define (get-product exp)
-	(if (product? (cadr exp))
-		(car exp)
+	(if (product? exp)
+		exp
 		(get-product (cdr exp))
 	)
 )
@@ -125,14 +151,24 @@
 			(equal? (car a) (car b)) (equal? (cdr a) (cdr b)))))
 
 (define (make-without-product exp var product)
+	(display "mk-wo-pro: ")
+	(display exp) (newline)
+
 	(cond
 		((equal? exp product) 
 			(append 
-				(make-sum
-					(make-product (multiplier exp)
-								(deriv (multiplicand exp) var))
-					(make-product (deriv (multiplier exp) var)
-								(multiplicand exp))
+				(let ((sum 
+						(make-sum
+							(make-product (multiplier exp)
+										(deriv (multiplicand exp) var))
+							(make-product (deriv (multiplier exp) var)
+										(multiplicand exp))
+						))
+					)
+					(if (list? sum)
+						(list (append sum '(make)))
+						(list (append (list sum) '(make)))
+					)
 				)
 				(cdddr exp)
 			)
@@ -145,7 +181,9 @@
 ; (display (deriv '(+ x (* 3 (+ x (+ y 2)))) 'x)) (newline)
 ; x + 3(x + y + 2)
 ; 4x + 3y + 6 -> 4
-(display (deriv '(x + (3 * (x + (y + 2)))) 'x)) (newline)
+; a
+(display (deriv '(x + (3 * (x + (y + 2)))) 'x)) (newline)(newline)
+(display (deriv '(3 * (x + (y + 2))) 'x)) (newline) (newline) 
 
 #|
 
@@ -155,13 +193,16 @@ b
 全体から足し算を計算
 
 |#
-; なんで1？
+(display (deriv '(3 * x) 'x)) (newline) ; ->3になるべき
+ (newline) 
+(display (deriv '(3 * (x + y + 2)) 'x)) (newline) ; ->3になるべき
+ (newline) 
 (display (deriv '(x + 3 * (x + y + 2)) 'x)) (newline)
-(display (deriv '(x + y + 2) 'x)) (newline) ; 1
-(display (get-bracket '(x + 3 * (x + y + 2)))) (newline)
-; (display (get-product '(x + 3 * 1))) (newline)
-(display (make-without-product '(x + 3 * 1) 'x '(3 * 1))) (newline)
 
+; 各パーツテスト
+; (display (get-bracket '(x + 3 * (x + y + 2)))) (newline)
+; (display (get-product '(x + 3 * 1))) (newline)
+; (display (make-without-product '(x + 3 * 1) 'x '(3 * 1))) (newline)
 
 ; (display (deriv '(x + 3 + (x + y + 2)) 'x)) (newline)
 
