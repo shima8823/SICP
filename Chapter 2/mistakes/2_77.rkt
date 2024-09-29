@@ -1,4 +1,15 @@
-; 謎問、意味不明そもそもcomplexパッケージに追加しても(magnitude z)を評価できないので無理です。
+#| 
+(define (real-part z) (apply-generic 'real-part z))
+(define (imag-part z) (apply-generic 'imag-part z))
+(define (magnitude z) (apply-generic 'magnitude z))
+(define (angle z) (apply-generic 'angle z))
+を書くのを忘れていて時間を溶かした。
+
+先に'(complex rectangular 3 . 4)が評価されて
+complex packageのmagnitude(上で定義した手続きが呼ばれる)
+次に'(rectangular 3 . 4)が呼ばれて5に計算される
+
+|#
 
 #lang racket
 
@@ -21,7 +32,11 @@
 		(error "Bad tagged datum: CONTENTS" datum)))
 
 (define (apply-generic op . args)
+		(display "args: ")
+		(display args) (newline)
 	(let ((type-tags (map type-tag args)))
+		(display "type-tags: ")
+		(display type-tags) (newline)
 		(let ((proc (get op type-tags)))
 			(if proc
 				(apply proc (map contents args))
@@ -163,6 +178,12 @@
 	(put 'make-from-mag-ang 'polar
 		(lambda (r a) (tag (make-from-mag-ang r a))))
 	'done)
+
+(define (real-part z) (apply-generic 'real-part z))
+(define (imag-part z) (apply-generic 'imag-part z))
+(define (magnitude z) (apply-generic 'magnitude z))
+(define (angle z) (apply-generic 'angle z))
+
 (define (make-complex-from-real-imag x y) ((get 'make-from-real-imag 'complex) x y))
 (define (make-complex-from-mag-ang r a) ((get 'make-from-mag-ang 'complex) r a))
 
@@ -176,7 +197,9 @@
 z
 
 ; ((get 'magnitude (list (car z))) (cddr z))
-; (magnitude z)
+(magnitude z)
+
+(map type-tag '(complex rectangular (cons 3 4)))
 
 ; (apply-generic magnitude z)
 
