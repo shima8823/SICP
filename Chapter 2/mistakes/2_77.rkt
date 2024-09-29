@@ -1,3 +1,5 @@
+; 謎問、意味不明そもそもcomplexパッケージに追加しても(magnitude z)を評価できないので無理です。
+
 #lang racket
 
 (define (square x) (* x x))
@@ -173,9 +175,10 @@
 (define z (make-complex-from-real-imag 3 4))
 z
 
+; ((get 'magnitude (list (car z))) (cddr z))
 ; (magnitude z)
 
-(apply-generic magnitude z)
+; (apply-generic magnitude z)
 
 ; (get 'magnitude '(complex))
 ; (apply-generic 'magnitude (z))
