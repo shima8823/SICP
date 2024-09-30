@@ -1,3 +1,6 @@
+; 良問
+; 考え方はあっていたが最後まで書く気力がなかった
+
 #lang racket
 
 (define (square x) (* x x))
@@ -27,22 +30,80 @@
 		  (else (error "Bad tagged datum: CONTENTS" datum))))
 
 (define (apply-generic op . args)
-	(let ((type-tags (map type-tag args)))
-		(let ((proc (get op type-tags)))
-			(if proc
-				(apply proc (map contents args))
-				; c
-				(if (= (length args) 2)
-					(let ((type1 (car type-tags))
-						  (type2 (cadr type-tags))
-						  (a1 (car args))
-						  (a2 (cadr args)))
-						(let ((t1->t2 (get-coercion type1 type2))
-							(t2->t1 (get-coercion type2 type1)))
-							(cond (t1->t2 (apply-generic op (t1->t2 a1) a2))
-								  (t2->t1 (apply-generic op a1 (t2->t1 a2)))
-								(else (error "No method for these types" (list op type-tags))))))
-					(error "No method for these types" (list op type-tags)))))))
+	; ; (define (identity x) x)
+	; ; listでやりたい
+	; ; 無理だったらfalse
+	; ; 行けるんだったら変換した集合を取る
+	; (define (convert type arg type-tags)
+	; 	(cond
+	; 		((null? type-tags) '())
+	; 		((eq? type (car type-tags)) type)
+	; 		(else 
+	; 			(let ((type2 (car type-tags))
+	; 				  (a2 (car args)))
+	; 				(let ((t1->t2 (get-coercion type type2))
+	; 					(t2->t1 (get-coercion type type1)))
+	; 					(cond (t1->t2 (apply-generic op (t1->t2 a1) a2))
+	; 						(t2->t1 (apply-generic op a1 (t2->t1 a2)))
+	; 						(else (error "No method for these types" (list op type-tags))))))
+	; 		)
+	; 	)
+		
+	; )
+
+	; (define (iter type-tags)
+	; 	(cond
+	; 		((null? type-tags) (error "No method iter"))
+	; 		(else 
+	; 			(let (set (convert (car type-tags) ? (cdr type-tags)))
+	; 				 (if set
+	; 				 	set
+	; 					(iter (cdr type-tags))
+	; 				 )))
+	; 	)
+	; )
+
+	; (let ((type-tags (map type-tag args)))
+	; 	(let ((proc (get op type-tags)))
+	; 		(if proc
+	; 			(apply proc (map contents args))
+	; 			; c
+	; 			(iter )))))
+	; 			; (if (= (length args) 2)
+	; 			; 	(let ((type1 (car type-tags))
+	; 			; 		  (type2 (cadr type-tags))
+	; 			; 		  (a1 (car args))
+	; 			; 		  (a2 (cadr args)))
+	; 			; 		(let ((t1->t2 (get-coercion type1 type2))
+	; 			; 			(t2->t1 (get-coercion type2 type1)))
+	; 			; 			(cond (t1->t2 (apply-generic op (t1->t2 a1) a2))
+	; 			; 				  (t2->t1 (apply-generic op a1 (t2->t1 a2)))
+	; 			; 				(else (error "No method for these types" (list op type-tags))))))
+	; 			; 	(error "No method for these types" (list op type-tags)))))))
+	 (define (type-tags args) 
+         (map type-tag args)) 
+  
+     (define (try-coerce-to target) 
+         (map (lambda (x) 
+                 (let ((coercor (get-coercion (type-tag x) (type-tag target)))) 
+                     (if coercor 
+                         (coercor x) 
+                         x))) 
+              args)) 
+      
+     (define (iterate next) 
+         (if (null? next)  
+             (error "No coersion strategy for these types " (list op (type-tags args))) 
+             (let ((coerced (try-coerce-to (car next)))) 
+                 (let ((proc (get op (type-tags coerced)))) 
+                     (if proc 
+                         (apply proc (map contents coerced)) 
+                         (iterate (cdr next))))))) 
+  
+     (let ((proc (get op (type-tags args)))) 
+         (if proc 
+             (apply proc (map contents args)) 
+             (iterate args)))) 
 
 (define (install-scheme-number-package)
 	(define (tag x) (attach-tag 'scheme-number x))
@@ -114,7 +175,8 @@
 	(define (div-complex z1 z2)
 		(make-from-mag-ang (/ (magnitude z1) (magnitude z2))
 							(- (angle z1) (angle z2))))
-
+	(define (scheme-number->complex n)
+		(make-complex-from-real-imag (contents n) 0))
 
 	;; システムのほかの部分とのインターフェイス
 	(define (tag z) (attach-tag 'complex z))
@@ -135,6 +197,7 @@
 	(put 'imag-part '(complex) imag-part)
 	(put 'magnitude '(complex) magnitude)
 	(put 'angle '(complex) angle)
+	(put-coercion 'scheme-number 'complex scheme-number->complex)
 	'done)
 
 (define (install-rectangular-package)
@@ -189,3 +252,18 @@
 
 (define (make-complex-from-real-imag x y) ((get 'make-from-real-imag 'complex) x y))
 (define (make-complex-from-mag-ang r a) ((get 'make-from-mag-ang 'complex) r a))
+
+(install-scheme-number-package)
+(install-rational-package)
+(install-polar-package)
+(install-rectangular-package)
+(install-complex-package)
+
+(define sample-s (make-scheme-number 5))
+(define sample-c (make-complex-from-real-imag 5 10))
+
+sample-s
+sample-c
+
+(apply-generic 'add sample-s sample-c)
+(apply-generic 'add sample-c sample-s)
