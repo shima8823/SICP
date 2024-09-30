@@ -105,6 +105,13 @@
 		(lambda (r a) (tag (make-from-mag-ang r a))))
 	'done)
 
+(define (real-part z) (apply-generic 'real-part z))
+(define (imag-part z) (apply-generic 'imag-part z))
+(define (magnitude z) (apply-generic 'magnitude z))
+(define (angle z) (apply-generic 'angle z))
+
+(define (make-complex-from-real-imag x y) ((get 'make-from-real-imag 'complex) x y))
+(define (make-complex-from-mag-ang r a) ((get 'make-from-mag-ang 'complex) r a))
 
 (install-scheme-number-package)
 (install-rational-package)
