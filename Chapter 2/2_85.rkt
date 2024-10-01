@@ -269,8 +269,6 @@
 (install-rectangular-package)
 (install-complex-package)
 
-(define sample-s (make-scheme-number 5))
-
 (define same-r (make-rational 5 3))
 (define drop-r (make-rational 5 1))
 
@@ -291,6 +289,3 @@
 (drop same-r)
 (drop drop-r)
 
-; (raise r)
-; (/ 15 10)
-; (* (/ 15 10) 1.0)
