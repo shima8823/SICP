@@ -10,11 +10,6 @@
 (define (get op type)
   (hash-ref *op-table* (list op type) #f))
 
-(define (put-coercion type1 type2 function)
-  (put type1 type2 function))
-(define (get-coercion type1 type2)
-  (get type1 type2))
-
 (define (attach-tag type-tag contents)
 	(cond
 		((or (eq? type-tag 'scheme-number) (eq? type-tag 'real-number))
@@ -47,24 +42,13 @@
 			(if proc
 				(apply proc (map contents args))
 				(if (and (= (length args) 2) (not (eq? (car type-tags) (cadr type-tags))))
-					(let ((type1 (car type-tags))
-						  (type2 (cadr type-tags))
-						  (a1 (car args))
+					(let ((a1 (car args))
 						  (a2 (cadr args)))
-						; 強制型変換は見づらくなるだけで今のところいらないかも。
-						(let ((t1->t2 (get-coercion type1 type2))
-							(t2->t1 (get-coercion type2 type1)))
-							(cond (t1->t2 (apply-generic op (t1->t2 a1) a2))
-								  (t2->t1 (apply-generic op a1 (t2->t1 a2)))
-								; else if 型が小さい方をraise 二つとも大きかったらerror
-								(else 
-									(let ((arg1 (raise-type a1 a2))
-										  (arg2 (raise-type a2 a1)))
-										; (display arg1 )(newline)
-										; (display arg2 )(newline)
-										(cond (arg1 (apply-generic op arg1 a2))
-												(arg2 (apply-generic op a1 arg2))
-												(else (error "No method for these types" (list op type-tags)))))))))
+						(let ((arg1 (raise-type a1 a2))
+								(arg2 (raise-type a2 a1)))
+							(cond (arg1 (apply-generic op arg1 a2))
+									(arg2 (apply-generic op a1 arg2))
+									(else (error "No method for these types" (list op type-tags))))))
 					(error "No method for these types" (list op type-tags)))))))
 
 (define (install-scheme-number-package)
@@ -158,8 +142,6 @@
 	(define (div-complex z1 z2)
 		(make-from-mag-ang (/ (magnitude z1) (magnitude z2))
 							(- (angle z1) (angle z2))))
-	(define (scheme-number->complex n)
-		(make-complex-from-real-imag (contents n) 0))
 	(define (real-number->complex real-number)
 		(make-complex-from-real-imag (contents real-number) 0))
 
@@ -182,7 +164,6 @@
 	(put 'imag-part '(complex) imag-part)
 	(put 'magnitude '(complex) magnitude)
 	(put 'angle '(complex) angle)
-	(put-coercion 'scheme-number 'complex scheme-number->complex)
 	(put 'raise '(real-number) real-number->complex)
 
 	'done)
