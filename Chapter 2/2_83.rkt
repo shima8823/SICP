@@ -13,17 +13,19 @@
 (define (get-coercion type1 type2)
   (get type1 type2))
 
-(define (attach-tag type-tag contents) 
-	(if (eq? type-tag 'scheme-number)
-		contents
-		(cons type-tag contents)))
+(define (attach-tag type-tag contents)
+	(cond
+		((or (eq? type-tag 'scheme-number) (eq? type-tag 'real-number))
+			contents)
+		(else (cons type-tag contents))))
 (define (type-tag datum)
 	(cond ((pair? datum) (car datum))
+		  ((inexact? datum) 'real-number)
 		  ((number? datum) 'scheme-number)
 		  (else (error "Bad tagged datum: TYPE-TAG" datum))))
 (define (contents datum)
 	(cond ((pair? datum) (cdr datum))
-		  ((number? datum) datum)
+		  ((or (number? datum) (inexact? datum)) datum)
 		  (else (error "Bad tagged datum: CONTENTS" datum))))
 
 (define (apply-generic op . args)
@@ -79,6 +81,8 @@
 	(define (div-rat x y)
 		(make-rat (* (numer x) (denom y))
 				  (* (denom x) (numer y))))
+	(define (scheme-number->rational scheme-number)
+		(tag (make-rat scheme-number 1)))
 	;; システムのほかの部分とのインターフェイス
 	(define (tag x) (attach-tag 'rational x))
 	(put 'add '(rational rational)
@@ -91,8 +95,27 @@
 		(lambda (x y) (tag (div-rat x y)))) 
 	(put 'make 'rational
 		(lambda (n d) (tag (make-rat n d))))
+	(put 'raise '(scheme-number) scheme-number->rational)
 	'done)
 (define (make-rational n d) ((get 'make 'rational) n d))
+
+(define (install-real-number-package)
+	(define (rational->real-number rational)
+		(tag (* (/ (car rational) (cdr rational)) 1.0)))
+
+	(define (tag x) (attach-tag 'real-number x))
+	(put 'add '(real-number real-number)
+		(lambda (x y) (tag (+ x y))))
+	(put 'sub '(real-number real-number)
+		(lambda (x y) (tag (- x y))))
+	(put 'mul '(real-number real-number)
+		(lambda (x y) (tag (* x y))))
+	(put 'div '(real-number real-number)
+		(lambda (x y) (tag (/ x y))))
+	(put 'make 'real-number (lambda (x) (tag (* x 1.0))))
+	(put 'raise '(rational) rational->real-number)
+	'done)
+(define (make-real-number x) ((get 'make 'real-number) x))
 
 (define (install-complex-package)
 	;; 直交形式パッケージと極形式パッケージからインポートした手続き
@@ -115,6 +138,8 @@
 							(- (angle z1) (angle z2))))
 	(define (scheme-number->complex n)
 		(make-complex-from-real-imag (contents n) 0))
+	(define (real-number->complex real-number)
+		(make-complex-from-real-imag (contents real-number) 0))
 
 	;; システムのほかの部分とのインターフェイス
 	(define (tag z) (attach-tag 'complex z))
@@ -136,6 +161,8 @@
 	(put 'magnitude '(complex) magnitude)
 	(put 'angle '(complex) angle)
 	(put-coercion 'scheme-number 'complex scheme-number->complex)
+	(put 'raise '(real-number) real-number->complex)
+
 	'done)
 
 (define (install-rectangular-package)
@@ -191,15 +218,38 @@
 (define (magnitude z) (apply-generic 'magnitude z))
 (define (angle z) (apply-generic 'angle z))
 
+(define (raise v) (apply-generic 'raise v))
+
 (install-scheme-number-package)
 (install-rational-package)
+(install-real-number-package)
 (install-polar-package)
 (install-rectangular-package)
 (install-complex-package)
 
 (define sample-s (make-scheme-number 5))
+(define sample-r (make-rational 5 3))
+(define sample-re (make-real-number 5))
 (define sample-c (make-complex-from-real-imag 5 10))
 
 sample-s
+sample-r
+sample-re
 sample-c
 
+(newline)
+(raise sample-s)
+(raise sample-r)
+(raise sample-re)
+
+(raise (raise (raise sample-s)))
+(raise (raise sample-r))
+
+; (newline)
+; (number? sample-s)
+; (exact? sample-s)
+; (inexact? sample-s)
+; (newline)
+; (number? sample-re)
+; (exact? sample-re)
+; (inexact? sample-re)
