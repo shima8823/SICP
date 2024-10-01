@@ -6,6 +6,10 @@
 
 (define (round-nop x) ;nop = no point
 	(inexact->exact (round x)))
+(define (equal? a b)
+	(or (and (not (pair? a)) (not (pair? b)) (eq? a b))
+		(and (pair? a) (pair? b)
+			(equal? (car a) (car b)) (equal? (cdr a) (cdr b)))))
 
 (define *op-table* (make-hash))
 (define (put op type proc)
@@ -35,15 +39,19 @@
 			(cond
 				((eq? (type-tag arg1) (type-tag arg2)) arg1)
 				(supertype (raise-type (supertype (contents arg1)) arg2))
-				(else #f)
-			)
-		)
-	)
+				(else #f))))
+	(define (drop-types result)
+		(if (or (eq? op 'raise) (eq? op 'drop) (eq? (type-tag result) 'scheme-number))
+			result
+			(let ((drop-value (drop result)))
+				(if (equal? result drop-value)
+					drop-value
+					(drop-types drop-value)))))
 
 	(let ((type-tags (map type-tag args)))
 		(let ((proc (get op type-tags)))
 			(if proc
-				(apply proc (map contents args))
+				(drop-types (apply proc (map contents args)))
 				(if (and (= (length args) 2) (not (eq? (car type-tags) (cadr type-tags))))
 					(let ((a1 (car args))
 						  (a2 (cadr args)))
@@ -121,7 +129,9 @@
 (define (install-real-number-package)
 	(define (equ? x y) (= x y))
 	(define (rational->real-number rational)
-		(tag (* (/ (car rational) (cdr rational)) 1.0)))
+		(if (= (car rational) 0)
+			(tag 0.0)
+			(tag (* (/ (car rational) (cdr rational)) 1.0))))
 	(define (real-number->scheme-number original)
 		(let ((drop-value (round-nop original)))
 			(if (equ? original (raise (raise drop-value)))
@@ -289,3 +299,11 @@
 (drop same-r)
 (drop drop-r)
 
+(define until-real (make-complex-from-real-imag 1.5 0))
+(define until-integer (make-complex-from-real-imag 1 0))
+(define until-complex (make-complex-from-real-imag 2 3))
+
+
+(add until-real 0)
+(add until-integer 0)
+(add until-complex 0)
