@@ -4,6 +4,9 @@
 
 (define (square x) (* x x))
 
+(define (round-nop x) ;nop = no point
+	(inexact->exact (round x)))
+
 (define *op-table* (make-hash))
 (define (put op type proc)
   (hash-set! *op-table* (list op type) proc))
@@ -88,8 +91,15 @@
 	(define (div-rat x y)
 		(make-rat (* (numer x) (denom y))
 				  (* (denom x) (numer y))))
+	(define (equ? x y)
+		(and (= (numer x) (numer y)) (= (denom x) (denom y))))
 	(define (scheme-number->rational scheme-number)
 		(tag (make-rat scheme-number 1)))
+	(define (rational->scheme-number r)
+		(let ((drop-value (numer r)))
+			(if (equ? r (contents (raise drop-value)))
+				drop-value
+				(tag r))))
 	;; システムのほかの部分とのインターフェイス
 	(define (tag x) (attach-tag 'rational x))
 	(put 'add '(rational rational)
@@ -102,15 +112,21 @@
 		(lambda (x y) (tag (div-rat x y)))) 
 	(put 'make 'rational
 		(lambda (n d) (tag (make-rat n d))))
-	(put 'equ? '(rational rational)
-		(lambda (x y) (and (= (numer x) (numer y)) (= (denom x) (denom x)))))
+	(put 'equ? '(rational rational) equ?)
 	(put 'raise '(scheme-number) scheme-number->rational)
+	(put 'drop '(rational) rational->scheme-number)
 	'done)
 (define (make-rational n d) ((get 'make 'rational) n d))
 
 (define (install-real-number-package)
+	(define (equ? x y) (= x y))
 	(define (rational->real-number rational)
 		(tag (* (/ (car rational) (cdr rational)) 1.0)))
+	(define (real-number->scheme-number original)
+		(let ((drop-value (round-nop original)))
+			(if (equ? original (raise (raise drop-value)))
+				drop-value
+				original)))
 
 	(define (tag x) (attach-tag 'real-number x))
 	(put 'add '(real-number real-number)
@@ -122,8 +138,9 @@
 	(put 'div '(real-number real-number)
 		(lambda (x y) (tag (/ x y))))
 	(put 'make 'real-number (lambda (x) (tag (* x 1.0))))
-	(put 'equ? '(real-number real-number) (lambda (x y) (= x y)))
+	(put 'equ? '(real-number real-number) equ?)
 	(put 'raise '(rational) rational->real-number)
+	(put 'drop '(real-number) real-number->scheme-number)
 	'done)
 (define (make-real-number x) ((get 'make 'real-number) x))
 
@@ -146,8 +163,20 @@
 	(define (div-complex z1 z2)
 		(make-from-mag-ang (/ (magnitude z1) (magnitude z2))
 							(- (angle z1) (angle z2))))
+	(define (equ? x y)
+		(and (= (real-part x) (real-part y)) (= (imag-part x) (imag-part y))))
 	(define (real-number->complex real-number)
 		(make-complex-from-real-imag (contents real-number) 0))
+	(define (complex->real-number c)
+		(let ((real (real-part c))
+			  (imag (imag-part c))
+			  (original (tag c)))
+			(if (not (= imag 0))
+				original
+				(let ((drop-value (make-real-number real)))
+					(if (equ? original (raise drop-value))
+						drop-value
+						original)))))
 
 	;; システムのほかの部分とのインターフェイス
 	(define (tag z) (attach-tag 'complex z))
@@ -169,9 +198,9 @@
 	(put 'magnitude '(complex) magnitude)
 	(put 'angle '(complex) angle)
 
-	(put 'equ? '(complex complex)
-		(lambda (x y) (and (= (real-part x) (real-part y)) (= (imag-part x) (imag-part y)))))
+	(put 'equ? '(complex complex) equ?)
 	(put 'raise '(real-number) real-number->complex)
+	(put 'drop '(complex) complex->real-number)
 
 	'done)
 
@@ -229,6 +258,7 @@
 (define (angle z) (apply-generic 'angle z))
 
 (define (raise v) (apply-generic 'raise v))
+(define (drop v) (apply-generic 'drop v))
 (define (equ? x y) (apply-generic 'equ? x y))
 (define (add v1 v2) (apply-generic 'add v1 v2))
 
@@ -240,19 +270,27 @@
 (install-complex-package)
 
 (define sample-s (make-scheme-number 5))
-(define sample-r (make-rational 5 3))
-(define sample-re (make-real-number 5))
-(define sample-c (make-complex-from-real-imag 5 10))
 
-sample-s
-sample-r
-sample-re
-sample-c
+(define same-r (make-rational 5 3))
+(define drop-r (make-rational 5 1))
+
+(define same-real (make-real-number 2.5))
+(define drop-real (make-real-number 5.0))
+
+(define same-c (make-complex-from-real-imag 2.5 10))
+(define drop-c (make-complex-from-real-imag 5.5 0))
 
 (newline)
-(raise sample-s)
-(raise sample-r)
-(raise sample-re)
+(drop same-c)
+(drop drop-c)
 
-(add sample-r sample-c)
-(add sample-c sample-r )
+; (round-nop 2.5)
+(drop same-real)
+(drop drop-real)
+
+(drop same-r)
+(drop drop-r)
+
+; (raise r)
+; (/ 15 10)
+; (* (/ 15 10) 1.0)
