@@ -62,6 +62,7 @@
 	(put 'div '(scheme-number scheme-number)
 		(lambda (x y) (tag (/ x y))))
 	(put 'make 'scheme-number (lambda (x) (tag x)))
+	(put 'equ? '(scheme-number scheme-number) (lambda (x y) (= x y)))
 	'done)
 
 (define (make-scheme-number n) ((get 'make 'scheme-number) n))
@@ -101,6 +102,8 @@
 		(lambda (x y) (tag (div-rat x y)))) 
 	(put 'make 'rational
 		(lambda (n d) (tag (make-rat n d))))
+	(put 'equ? '(rational rational)
+		(lambda (x y) (and (= (numer x) (numer y)) (= (denom x) (denom x)))))
 	(put 'raise '(scheme-number) scheme-number->rational)
 	'done)
 (define (make-rational n d) ((get 'make 'rational) n d))
@@ -119,6 +122,7 @@
 	(put 'div '(real-number real-number)
 		(lambda (x y) (tag (/ x y))))
 	(put 'make 'real-number (lambda (x) (tag (* x 1.0))))
+	(put 'equ? '(real-number real-number) (lambda (x y) (= x y)))
 	(put 'raise '(rational) rational->real-number)
 	'done)
 (define (make-real-number x) ((get 'make 'real-number) x))
@@ -164,6 +168,9 @@
 	(put 'imag-part '(complex) imag-part)
 	(put 'magnitude '(complex) magnitude)
 	(put 'angle '(complex) angle)
+
+	(put 'equ? '(complex complex)
+		(lambda (x y) (and (= (real-part x) (real-part y)) (= (imag-part x) (imag-part y)))))
 	(put 'raise '(real-number) real-number->complex)
 
 	'done)
@@ -222,6 +229,7 @@
 (define (angle z) (apply-generic 'angle z))
 
 (define (raise v) (apply-generic 'raise v))
+(define (equ? x y) (apply-generic 'equ? x y))
 (define (add v1 v2) (apply-generic 'add v1 v2))
 
 (install-scheme-number-package)
