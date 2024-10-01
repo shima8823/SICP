@@ -1,3 +1,5 @@
+; 良問
+
 #lang racket
 
 (define (square x) (* x x))
@@ -29,20 +31,40 @@
 		  (else (error "Bad tagged datum: CONTENTS" datum))))
 
 (define (apply-generic op . args)
+	(define (raise-type arg1 arg2)
+		(let
+			((supertype (get 'raise (list (type-tag arg1)))))
+			(cond
+				((eq? (type-tag arg1) (type-tag arg2)) arg1)
+				(supertype (raise-type (supertype (contents arg1)) arg2))
+				(else #f)
+			)
+		)
+	)
+
 	(let ((type-tags (map type-tag args)))
 		(let ((proc (get op type-tags)))
 			(if proc
 				(apply proc (map contents args))
-				(if (= (length args) 2)
+				(if (and (= (length args) 2) (not (eq? (car type-tags) (cadr type-tags))))
 					(let ((type1 (car type-tags))
 						  (type2 (cadr type-tags))
 						  (a1 (car args))
 						  (a2 (cadr args)))
+						; 強制型変換は見づらくなるだけで今のところいらないかも。
 						(let ((t1->t2 (get-coercion type1 type2))
 							(t2->t1 (get-coercion type2 type1)))
 							(cond (t1->t2 (apply-generic op (t1->t2 a1) a2))
 								  (t2->t1 (apply-generic op a1 (t2->t1 a2)))
-								(else (error "No method for these types" (list op type-tags))))))
+								; else if 型が小さい方をraise 二つとも大きかったらerror
+								(else 
+									(let ((arg1 (raise-type a1 a2))
+										  (arg2 (raise-type a2 a1)))
+										; (display arg1 )(newline)
+										; (display arg2 )(newline)
+										(cond (arg1 (apply-generic op arg1 a2))
+												(arg2 (apply-generic op a1 arg2))
+												(else (error "No method for these types" (list op type-tags)))))))))
 					(error "No method for these types" (list op type-tags)))))))
 
 (define (install-scheme-number-package)
@@ -219,6 +241,7 @@
 (define (angle z) (apply-generic 'angle z))
 
 (define (raise v) (apply-generic 'raise v))
+(define (add v1 v2) (apply-generic 'add v1 v2))
 
 (install-scheme-number-package)
 (install-rational-package)
@@ -241,3 +264,6 @@ sample-c
 (raise sample-s)
 (raise sample-r)
 (raise sample-re)
+
+(add sample-r sample-c)
+(add sample-c sample-r )
