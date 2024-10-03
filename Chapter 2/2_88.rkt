@@ -77,6 +77,7 @@
 	(put 'make 'scheme-number (lambda (x) (tag x)))
 	(put 'equ? '(scheme-number scheme-number) (lambda (x y) (= x y)))
 	(put '=zero? '(scheme-number) (lambda (x) (= x 0)))
+	(put 'sign '(scheme-number) (lambda (x) (tag (* x -1))))
 	'done)
 
 (define (make-scheme-number n) ((get 'make 'scheme-number) n))
@@ -125,6 +126,7 @@
 		(lambda (n d) (tag (make-rat n d))))
 	(put 'equ? '(rational rational) equ?)
 	(put '=zero? '(rational) (lambda (x) (= (numer x) 0)))
+	(put 'sign '(rational) (lambda (x) (tag (make-rat (* (numer x) -1) (denom x)))))
 	(put 'raise '(scheme-number) scheme-number->rational)
 	(put 'drop '(rational) rational->scheme-number)
 	'done)
@@ -154,6 +156,7 @@
 	(put 'make 'real-number (lambda (x) (tag (* x 1.0))))
 	(put 'equ? '(real-number real-number) equ?)
 	(put '=zero? '(real-number) (lambda (x) (= x 0)))
+	(put 'sign '(real-number) (lambda (x) (tag (* x -1))))
 	(put 'raise '(rational) rational->real-number)
 	(put 'drop '(real-number) real-number->scheme-number)
 	'done)
@@ -215,6 +218,7 @@
 
 	(put 'equ? '(complex complex) equ?)
 	(put '=zero? '(complex) (lambda (x) (and (= (real-part x) 0) (= (imag-part x) 0))))
+	(put 'sign '(complex) (lambda (x) (tag (make-from-real-imag (sign (real-part x)) (sign (imag-part x))))))
 	(put 'raise '(real-number) real-number->complex)
 	(put 'drop '(complex) complex->real-number)
 
@@ -275,10 +279,12 @@
 
 (define (raise v) (apply-generic 'raise v))
 (define (drop v) (apply-generic 'drop v))
+(define (sign v) (apply-generic 'sign v))
 (define (equ? x y) (apply-generic 'equ? x y))
 (define (=zero? x) (apply-generic '=zero? x))
 (define (add v1 v2) (apply-generic 'add v1 v2))
 (define (mul v1 v2) (apply-generic 'mul v1 v2))
+(define (sub v1 v2) (apply-generic 'sub v1 v2))
 
 (install-scheme-number-package)
 (install-rational-package)
@@ -367,6 +373,15 @@
 		(or (empty-termlist? L)
 			(and (=zero? (first-term L)) (zero?-terms (rest-terms L)))))
 
+	(define (sign-poly p)
+		(make-poly 
+			(variable p)
+			(map (lambda (x)
+					(make-term
+						(order x)
+						(sign (coeff x))))
+				(term-list p))))
+
 
 	;; システムのほかの部分とのインターフェイス
 	(define (tag p) (attach-tag 'polynomial p))
@@ -374,9 +389,12 @@
 		(lambda (p1 p2) (tag (add-poly p1 p2))))
 	(put 'mul '(polynomial polynomial)
 		(lambda (p1 p2) (tag (mul-poly p1 p2))))
+	(put 'sub '(polynomial polynomial)
+		(lambda (p1 p2) (tag (add-poly p1 (sign-poly p2)))))
 	(put 'make 'polynomial
 		(lambda (var terms) (tag (make-poly var terms))))
 	(put '=zero? '(polynomial) (lambda (p) (zero?-poly p)))
+	(put 'sign '(polynomial) (lambda (p) (tag (sign-poly p))))
 	'done)
 (define (make-polynomial var terms) ((get 'make 'polynomial) var terms))
 
@@ -392,4 +410,7 @@ sample1
 (mul sample1 sample2)
 (mul sample1 sample3)
 
-
+(sign sample1)
+(sub sample1 sample2)
+(sub sample1 sample3)
+(sub sample3 sample1)
