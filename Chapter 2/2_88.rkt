@@ -40,7 +40,10 @@
 				(supertype (raise-type (supertype (contents arg1)) arg2))
 				(else #f))))
 	(define (drop-types result)
-		(if (or (eq? op 'raise) (eq? op 'drop) (eq? (type-tag result) 'scheme-number))
+		(if (or (eq? op 'raise) (eq? op 'drop)
+				(and (not (pair? result)) (not (number? result)))
+				(eq? (type-tag result) 'scheme-number)
+				(eq? (type-tag result) 'polynomial))
 			result
 			(let ((drop-value (drop result)))
 				(if (equal? result drop-value)
@@ -358,7 +361,7 @@
 				(mul-terms (term-list p1) (term-list p2)))
 			(error "Polys not in same var: MUL-POLY" (list p1 p2))))
 
-	(define (=zero? p)
+	(define (zero?-poly p)
 		(zero?-terms (term-list p)))
 	(define (zero?-terms L)
 		(or (empty-termlist? L)
@@ -373,9 +376,20 @@
 		(lambda (p1 p2) (tag (mul-poly p1 p2))))
 	(put 'make 'polynomial
 		(lambda (var terms) (tag (make-poly var terms))))
-	(put '=zero? '(polynomial) =zero?)
+	(put '=zero? '(polynomial) (lambda (p) (zero?-poly p)))
 	'done)
 (define (make-polynomial var terms) ((get 'make 'polynomial) var terms))
 
 (install-polynomial-package)
+
+(define sample1 (make-polynomial 'x '((2 5) (1 3) (0 7))))
+(define sample2 (make-polynomial 'x '((2 2))))
+(define sample3 (make-polynomial 'x '((3 2))))
+sample1
+
+(add sample1 sample2)
+(add sample1 sample3)
+(mul sample1 sample2)
+(mul sample1 sample3)
+
 
