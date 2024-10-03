@@ -1,3 +1,4 @@
+; 良問
 ; poly zeroのapply-genericができないからそもそもテストできねえ。。。
 #lang racket
 
