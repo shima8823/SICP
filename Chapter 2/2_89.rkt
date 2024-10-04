@@ -317,9 +317,9 @@
 		(and (variable? v1) (variable? v2) (eq? v1 v2)))
 	;; 項と項リストの表現
 	(define (adjoin-term term term-list)
-		(if (=zero? (car term))
+		(if (=zero? (coeff term))
 			term-list
-			(cons (car term) term-list)))
+			(cons (coeff term) term-list)))
 	(define (the-empty-termlist) '())
 	(define (first-term term-list) term-list)
 	(define (rest-terms term-list) (cdr term-list))
