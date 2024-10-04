@@ -1,3 +1,10 @@
+#|
+
+四時間やって無理だったからスキップ
+first-termとadjoin-termを分ける方法、generic-applyが思いつかない。
+
+|#
+
 #lang racket
 
 ; ##### generic-calc
@@ -300,20 +307,20 @@
 (define (install-polynomial-package)
 	;; 内部手続き
 	;; poly の表現
-	(define (make-poly variable term-list) (cons variable term-list))
-	(define (variable p) (car p))
-	(define (term-list p) (cdr p))
+	(define (make-polynomial variable term-list) (cons variable term-list))
+	(define (variable p) (cadr p))
+	(define (term-list p) (cddr p))
 
 	(define (variable? x) (symbol? x))
 	(define (same-variable? v1 v2)
 		(and (variable? v1) (variable? v2) (eq? v1 v2)))
 	;; 項と項リストの表現
-	(define (adjoin-term term term-list)
-		(if (=zero? (coeff term))
-			term-list
-			(cons term term-list)))
+	; (define (adjoin-term term term-list)
+	; 	(if (=zero? (coeff term))
+	; 		term-list
+	; 		(cons term term-list)))
 	(define (the-empty-termlist) '())
-	(define (first-term term-list) (car term-list))
+	; (define (first-term term-list) (car term-list))
 	(define (rest-terms term-list) (cdr term-list))
 	(define (empty-termlist? term-list) (null? term-list))
 	(define (make-term order coeff) (list order coeff))
@@ -391,21 +398,115 @@
 		(lambda (p1 p2) (tag (mul-poly p1 p2))))
 	(put 'sub '(polynomial polynomial)
 		(lambda (p1 p2) (tag (add-poly p1 (sign-poly p2)))))
-	(put 'make 'polynomial
-		(lambda (var terms) (tag (make-poly var terms))))
 	(put '=zero? '(polynomial) (lambda (p) (zero?-poly p)))
 	(put 'sign '(polynomial) (lambda (p) (tag (sign-poly p))))
+
+	(define (install-polynomial-dense-package) 
+		(define (adjoin-term term term-list) 
+			(if (= (order term) (length term-list)) 
+				(cons (coeff term) term-list) 
+				(adjoin-term term 
+						(cons 0 term-list)))) 
+		(define (first-term term-list) 
+			(make-term (car term-list) 
+				(- (length term-list) 1))) 
+		; here place all the other procedures 
+		(define (tag x) 
+			(attach-tag 'polynomial-dense x)) 
+		
+		(put 'adjoin-term 'polynomial-dense 
+			(lambda (term term-list) (tag (adjoin-term term term-list)))) 
+		(put 'first-term 'polynomial-dense 
+			(lambda (term-list) (tag (first-term term-list)))) 
+		(put 'make-poly 'polynomial-dense (lambda (v t) (tag (make-polynomial v t)))) 
+
+		'done) 
+
+	(define (install-polynomial-sparse-package) 
+		(define (adjoin-term term term-list) 
+			(if (=zero? (coeff term)) 
+				term-list 
+				(cons term term-list))) 
+		(define (first-term term-list) (car term-list)) 
+		; here place all the other procedures 
+		(define (tag x) 
+			(attach-tag 'polynomial-sparse x)) 
+		(put 'adjoin-term 'polynomial-sparse 
+			(lambda (term term-list) (tag (adjoin-term term term-list)))) 
+		(put 'first-term 'polynomial-sparse 
+			(lambda (term-list) (tag (first-term term-list)))) 
+		(put 'make-poly 'polynomial-sparse (lambda (v t) (tag (make-polynomial v t)))) 
+		
+		'done)
+	
+	(install-polynomial-sparse-package)
+	(install-polynomial-dense-package)
+
+	(define (adjoin-term term term-list)  
+		((get 'adjoin-term (type-tag term-list)) term term-list))
+	(define (first-term term-list)
+		(if (> (length term-list) 2)
+			((get 'first-term 'polynomial-dense) term-list)
+			((get 'first-term 'polynomial-sparse) term-list)))
+
+	(define (make-poly variable term-list) 
+		(if (pair? (car term-list))
+			(if (poly-sparse? term-list) 
+				((get 'make-poly 'polynomial-sparse) variable term-list) 
+				((get 'make-poly 'polynomial-dense) variable term-list))
+			((get 'make-poly 'polynomial-dense) variable term-list)))
+		
+  
+	(define (poly-sparse? term-list) ;要素の半分以上0があったらpoly
+	; a polynomial is sparse if at least half of its coefficients are zero 
+		(define (iter zeros remaining) 
+			(cond ((null? remaining) 
+					zeros) 
+				((equ? (coeff (car remaining)) 0) 
+					(iter (+ zeros 1) (cdr remaining))) 
+				(else 
+					(iter zeros (cdr remaining))))) 
+		; the above could also be done with reduce 
+		(> (iter 0 term-list) 
+			(/ (length term-list) 2))) 
+
+	(put 'make 'polynomial
+		(lambda (var terms) (tag (make-poly var terms))))
+
 	'done)
 (define (make-polynomial var terms) ((get 'make 'polynomial) var terms))
 
 (install-polynomial-package)
 
-(define sample1 (make-polynomial 'x '((2 5) (1 3) (0 7))))
-(define sample2 (make-polynomial 'x '((2 2))))
-(define sample3 (make-polynomial 'x '((3 2))))
-sample1
 
-(add sample1 sample2)
-(add sample1 sample3)
-(mul sample1 sample2)
-(mul sample1 sample3)
+
+(define sparse-sample1 (make-polynomial 'x '((2 5) (1 3) (0 7))))
+(define sparse-sample2 (make-polynomial 'x '((2 2))))
+(define sparse-sample3 (make-polynomial 'x '((3 2))))
+sparse-sample1
+
+(add sparse-sample1 sparse-sample2)
+(add sparse-sample1 sparse-sample3)
+(mul sparse-sample1 sparse-sample2)
+(mul sparse-sample1 sparse-sample3)
+
+(newline)
+
+; (define dense-sample1 (make-polynomial 'x '((2 5) (1 0) (0 0))))
+; (define dense-sample2 (make-polynomial 'x '((100 1) (2 2) (0 1))))
+
+; dense-sample1
+; dense-sample2
+
+(define dense-sample1 (make-polynomial 'x '(5 3 7)))
+(define dense-sample2 (make-polynomial 'x '(2 0 0)))
+(define dense-sample3 (make-polynomial 'x '(2 0 0 0)))
+dense-sample1
+
+(add dense-sample1 dense-sample2) ; (7 3 7)
+(add dense-sample1 dense-sample3) ; (2 5 3 7)
+(add dense-sample1 dense-sample1) ; (10 6 14)
+(mul dense-sample1 dense-sample2) ; (10 6 14 0 0)
+(mul dense-sample2 dense-sample1) ; (10 6 14 0 0)
+(mul dense-sample1 dense-sample3) ; (10 6 14 0 0 0)
+(mul dense-sample3 dense-sample1) ; (10 6 14 0 0 0)
