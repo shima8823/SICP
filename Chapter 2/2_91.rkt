@@ -285,6 +285,7 @@
 (define (add v1 v2) (apply-generic 'add v1 v2))
 (define (mul v1 v2) (apply-generic 'mul v1 v2))
 (define (sub v1 v2) (apply-generic 'sub v1 v2))
+(define (div v1 v2) (apply-generic 'div v1 v2))
 
 (install-scheme-number-package)
 (install-rational-package)
@@ -339,6 +340,8 @@
 									(rest-terms L1)
 									(rest-terms L2)))))))))
 
+	(define (sub-terms L1 L2) (add-terms L1 (sign-term L2)))
+
 	(define (add-poly p1 p2)
 		(if (same-variable? (variable p1) (variable p2))
 			(make-poly (variable p1)
@@ -366,6 +369,28 @@
 			(make-poly (variable p1)
 				(mul-terms (term-list p1) (term-list p2)))
 			(error "Polys not in same var: MUL-POLY" (list p1 p2))))
+	
+	(define (div-terms L1 L2) ; L1='((5 1) (0 -1)) L2='((2 1) (0 -1))
+		(if (empty-termlist? L1)
+			(list (the-empty-termlist) (the-empty-termlist))
+			(let ((t1 (first-term L1))(t2 (first-term L2)))
+				(if (> (order t2) (order t1))
+					(list (the-empty-termlist) L1)
+					(let ((new-c (div (coeff t1) (coeff t2)))
+						  (new-o (- (order t1) (order t2))))
+						(let ((rest-of-result
+							; ⟨ 再帰的に残りを計算する⟩
+							(div-terms (sub-terms L1 (mul-terms (list (make-term new-o new-c)) L2)) L2)
+							))
+						; ⟨ 完全な結果を作る⟩
+						(list (adjoin-term (make-term new-o new-c) (car rest-of-result)) (cadr rest-of-result))
+						))))))
+
+	(define (div-poly p1 p2)
+		(if (same-variable? (variable p1) (variable p2))
+			(make-poly (variable p1)
+				(div-terms (term-list p1) (term-list p2)))
+			(error "Polys not in same var: DIV-POLY" (list p1 p2))))
 
 	(define (zero?-poly p)
 		(zero?-terms (term-list p)))
@@ -373,14 +398,17 @@
 		(or (empty-termlist? L)
 			(and (=zero? (first-term L)) (zero?-terms (rest-terms L)))))
 
+	(define (sign-term L)
+		(map (lambda (x)
+				(make-term
+					(order x)
+					(sign (coeff x))))
+			L))
+
 	(define (sign-poly p)
 		(make-poly 
 			(variable p)
-			(map (lambda (x)
-					(make-term
-						(order x)
-						(sign (coeff x))))
-				(term-list p))))
+			(sign-term (term-list p))))
 
 
 	;; システムのほかの部分とのインターフェイス
@@ -391,6 +419,8 @@
 		(lambda (p1 p2) (tag (mul-poly p1 p2))))
 	(put 'sub '(polynomial polynomial)
 		(lambda (p1 p2) (tag (add-poly p1 (sign-poly p2)))))
+	(put 'div '(polynomial polynomial)
+		(lambda (p1 p2) (tag (div-poly p1 p2))))
 	(put 'make 'polynomial
 		(lambda (var terms) (tag (make-poly var terms))))
 	(put '=zero? '(polynomial) (lambda (p) (zero?-poly p)))
@@ -410,8 +440,20 @@ sample1
 (mul sample1 sample2)
 (mul sample1 sample3)
 
+(newline)
+
 (sign sample1)
 (sub sample1 sample2)
 (sub sample1 sample3)
 (sub sample3 sample1)
+
+(newline)
+
+(define div1 (make-polynomial 'x '((5 1) (0 -1))))
+(define div2 (make-polynomial 'x '((2 1) (0 -1))))
+
+(display "div1 ")div1
+(display "div2 ")div2
+
+(div div1 div2)
 
