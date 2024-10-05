@@ -53,7 +53,7 @@
 	(let ((type-tags (map type-tag args)))
 		(let ((proc (get op type-tags)))
 			(if proc
-				(drop-types (apply proc (map contents args)))
+				(apply proc (map contents args))
 				(if (and (= (length args) 2) (not (eq? (car type-tags) (cadr type-tags))))
 					(let ((a1 (car args))
 						  (a2 (cadr args)))
@@ -86,23 +86,21 @@
 	;; 内部手続き
 	(define (numer x) (car x))
 	(define (denom x) (cdr x))
-	(define (make-rat n d)
-		(let ((g (gcd n d)))
-			(cons (/ n g) (/ d g))))
+	(define (make-rat n d) (cons n d))
 	(define (add-rat x y)
-		(make-rat (+ (* (numer x) (denom y))
-					 (* (numer y) (denom x)))
-				  (* (denom x) (denom y))))
+			(make-rat (add (mul (numer x) (denom y))
+					 (mul (numer y) (denom x)))
+				  (mul (denom x) (denom y))))
 	(define (sub-rat x y)
-		(make-rat (- (* (numer x) (denom y))
-					 (* (numer y) (denom x)))
-				  (* (denom x) (denom y))))
+		(make-rat (sub (mul (numer x) (denom y))
+					 (mul (numer y) (denom x)))
+				  (mul (denom x) (denom y))))
 	(define (mul-rat x y)
-		(make-rat (* (numer x) (numer y))
-				  (* (denom x) (denom y))))
+		(make-rat (mul (numer x) (numer y))
+				  (mul (denom x) (denom y))))
 	(define (div-rat x y)
-		(make-rat (* (numer x) (denom y))
-				  (* (denom x) (numer y))))
+		(make-rat (mul (numer x) (denom y))
+				  (mul (denom x) (numer y))))
 	(define (equ? x y)
 		(and (= (numer x) (numer y)) (= (denom x) (denom y))))
 	(define (scheme-number->rational scheme-number)
@@ -457,3 +455,19 @@ sample1
 
 (div div1 div2)
 
+(newline)
+
+(define r1 (make-rational 5 3))
+(define r2 (make-rational 5 1))
+(add r1 r2)
+(newline)
+
+(define p1 (make-polynomial 'x '((2 1) (0 1))))
+(define p2 (make-polynomial 'x '((3 1) (0 1))))
+(define rf (make-rational p2 p1))
+
+(display "p1 ")p1
+(display "p2 ")p2
+(display "rf ")rf
+
+(add rf rf) ; '(rational (polynomial x ))
