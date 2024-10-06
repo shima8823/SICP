@@ -404,9 +404,23 @@
 					(make-term 0 (expt c (+ 1 (- o1 o2))))
 					p))
 			q)))
+	(define (gcd-list coeff-list)
+		(define (iter result list)
+			(if (null? list)
+				result
+				(iter (gcd result (car list)) (cdr list))))
+		(if (= (length coeff-list) 1)
+			1
+			(iter (gcd (car coeff-list) (cadr coeff-list)) (cddr coeff-list))))
+			; こっちのがbetter (apply gcd coeff-list))) ; (eval (cons f args))), eval = 引数を評価する
+			; (gcd coeff-list))) これは listを解除してargsとして渡す必要がある。
 	(define (gcd-terms a b)
 		(if (empty-termlist? b)
-			a
+			(let ((g (gcd-list (map coeff a))))
+				(map
+						(lambda (term)
+							(make-term (order term) (div (coeff term) g)))
+						a))
 			(gcd-terms b (pseudoremainder-terms a b))))
 	(define (gcd-poly p1 p2)
 		(if (same-variable? (variable p1) (variable p2))
