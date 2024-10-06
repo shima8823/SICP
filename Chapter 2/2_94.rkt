@@ -74,6 +74,8 @@
 		(lambda (x y) (tag (* x y))))
 	(put 'div '(scheme-number scheme-number)
 		(lambda (x y) (tag (/ x y))))
+	(put 'greatest-common-divisor '(scheme-number scheme-number)
+		(lambda (x y) (gcd x y)))
 	(put 'make 'scheme-number (lambda (x) (tag x)))
 	(put 'equ? '(scheme-number scheme-number) (lambda (x y) (= x y)))
 	(put '=zero? '(scheme-number) (lambda (x) (= x 0)))
@@ -86,7 +88,9 @@
 	;; 内部手続き
 	(define (numer x) (car x))
 	(define (denom x) (cdr x))
-	(define (make-rat n d) (cons n d))
+	(define (make-rat n d)
+		(let ((g (greatest-common-divisor n d)))
+			(cons (div n g) (div d g))))
 	(define (add-rat x y)
 			(make-rat (add (mul (numer x) (denom y))
 					 (mul (numer y) (denom x)))
@@ -390,6 +394,22 @@
 				(div-terms (term-list p1) (term-list p2)))
 			(error "Polys not in same var: DIV-POLY" (list p1 p2))))
 
+	(define (remainder-terms p1 p2) (cadr (div-terms p1 p2)))
+	(define (gcd-terms a b)
+		(if (empty-termlist? b)
+			a
+			(gcd-terms b (remainder-terms a b))))
+	(define (gcd-poly p1 p2)
+		(if (same-variable? (variable p1) (variable p2))
+			(make-poly (variable p1)
+				(gcd-terms (term-list p1) (term-list p2)))
+				; (let ((res (gcd-terms (term-list p1) (term-list p2))))
+				; 	(display "res: ")(display '((0 1)))(newline)
+				; 	(if (= (order (first-term res)) 0) ; constant?
+				; 		'((0 1))
+				; 		res)))
+			(error "Polys not in same var: GCD-POLY" (list p1 p2))))
+
 	(define (zero?-poly p)
 		(zero?-terms (term-list p)))
 	(define (zero?-terms L)
@@ -419,6 +439,8 @@
 		(lambda (p1 p2) (tag (add-poly p1 (sign-poly p2)))))
 	(put 'div '(polynomial polynomial)
 		(lambda (p1 p2) (tag (div-poly p1 p2))))
+	(put 'greatest-common-divisor '(polynomial polynomial)
+		(lambda (p1 p2) (tag (gcd-poly p1 p2))))
 	(put 'make 'polynomial
 		(lambda (var terms) (tag (make-poly var terms))))
 	(put '=zero? '(polynomial) (lambda (p) (zero?-poly p)))
@@ -427,6 +449,7 @@
 (define (make-polynomial var terms) ((get 'make 'polynomial) var terms))
 
 (install-polynomial-package)
+(define (greatest-common-divisor v1 v2) (apply-generic 'greatest-common-divisor v1 v2))
 
 (define sample1 (make-polynomial 'x '((2 5) (1 3) (0 7))))
 (define sample2 (make-polynomial 'x '((2 2))))
@@ -462,12 +485,28 @@ sample1
 (add r1 r2)
 (newline)
 
-(define p1 (make-polynomial 'x '((2 1) (0 1))))
-(define p2 (make-polynomial 'x '((3 1) (0 1))))
-(define rf (make-rational p2 p1))
+; rfを生成するときにmake-ratのdivで商と剰余を返すようにしたので
+; こちらは動かなくなる。
+
+; (define add-rational-p1 (make-polynomial 'x '((2 1) (0 1))))
+; (define add-rational-p2 (make-polynomial 'x '((3 1) (0 1))))
+; (define rf (make-rational add-rational-p2 add-rational-p1))
+
+; (display "add-rational-p1 ")add-rational-p1
+; (display "add-rational-p2 ")add-rational-p2
+; (newline)
+; (greatest-common-divisor add-rational-p1 add-rational-p2)
+; (newline)
+
+; (display "rf ")rf
+
+; (add rf rf)
+
+(newline)
+(define p1 (make-polynomial 'x '((4 1) (3 -1) (2 -2) (1 2))))
+(define p2 (make-polynomial 'x '((3 1) (1 -1))))
 
 (display "p1 ")p1
 (display "p2 ")p2
-(display "rf ")rf
 
-(add rf rf)
+(greatest-common-divisor p1 p2)
