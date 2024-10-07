@@ -65,6 +65,10 @@
 					(error "No method for these types" (list op type-tags)))))))
 
 (define (install-scheme-number-package)
+	(define (reduce-integers n d)
+		(let ((g (gcd n d)))
+			(list (/ n g) (/ d g))))
+
 	(define (tag x) (attach-tag 'scheme-number x))
 	(put 'add '(scheme-number scheme-number)
 		(lambda (x y) (tag (+ x y))))
@@ -76,6 +80,8 @@
 		(lambda (x y) (tag (/ x y))))
 	(put 'greatest-common-divisor '(scheme-number scheme-number)
 		(lambda (x y) (gcd x y)))
+	(put 'reduce '(scheme-number scheme-number)
+		(lambda (n d) (tag (reduce-integers n d))))
 	(put 'make 'scheme-number (lambda (x) (tag x)))
 	(put 'equ? '(scheme-number scheme-number) (lambda (x y) (= x y)))
 	(put '=zero? '(scheme-number) (lambda (x) (= x 0)))
@@ -89,8 +95,9 @@
 	(define (numer x) (car x))
 	(define (denom x) (cdr x))
 	(define (make-rat n d)
-		(let ((g (greatest-common-divisor n d)))
-			(cons (div n g) (div d g))))
+		; (let ((g (greatest-common-divisor n d)))
+		; 	(cons (div n g) (div d g))))
+		(reduce n d))
 	(define (add-rat x y)
 			(make-rat (add (mul (numer x) (denom y))
 					 (mul (numer y) (denom x)))
@@ -411,9 +418,7 @@
 				(iter (gcd result (car list)) (cdr list))))
 		(if (= (length coeff-list) 1)
 			1
-			(iter (gcd (car coeff-list) (cadr coeff-list)) (cddr coeff-list))))
-			; こっちのがbetter (apply gcd coeff-list))) ; (eval (cons f args))), eval = 引数を評価する
-			; (gcd coeff-list))) これは listを解除してargsとして渡す必要がある。
+			(apply gcd coeff-list))) ; (eval (cons f args))), eval = 引数を評価する
 	(define (gcd-terms a b)
 		(if (empty-termlist? b)
 			(let ((g (gcd-list (map coeff a))))
@@ -426,11 +431,37 @@
 		(if (same-variable? (variable p1) (variable p2))
 			(make-poly (variable p1)
 				(gcd-terms (term-list p1) (term-list p2)))
-				; (let ((res (gcd-terms (term-list p1) (term-list p2))))
-				; 	(if (= (order (first-term res)) 0)
-				; 		'((0 1))
-				; 		res)))
 			(error "Polys not in same var: GCD-POLY" (list p1 p2))))
+
+	(define (reduce-terms n d)
+		(let ((g (gcd-terms n d)))
+			(let ((o1 (max (order (first-term n)) (order (first-term d))))
+				  (o2 (order (first-term g)))
+				  (c  (coeff (first-term g))))
+				(map 
+					(lambda (terms)
+						(car
+							(div-terms 
+								(div-coeffs-gcd
+									(mul-term-by-all-terms
+										(make-term 0 (expt c (+ 1 (- o1 o2))))
+									terms))
+								g)))
+					(list n d)))))
+
+	(define (reduce-poly p1 p2)
+		(if (same-variable? (variable p1) (variable p2))
+			(map
+				(lambda (term) (make-poly (variable p1) term))
+				(reduce-terms (term-list p1) (term-list p2)))
+			(error "Polys not in same var: REDUCE-POLY" (list p1 p2))))
+
+	(define (div-coeffs-gcd terms)
+		(let ((g (gcd-list (map coeff terms))))
+			(map
+				(lambda (term)
+					(make-term (order term) (div (coeff term) g)))
+				terms)))
 
 	(define (zero?-poly p)
 		(zero?-terms (term-list p)))
@@ -461,8 +492,12 @@
 		(lambda (p1 p2) (tag (add-poly p1 (sign-poly p2)))))
 	(put 'div '(polynomial polynomial)
 		(lambda (p1 p2) (tag (div-poly p1 p2))))
+
 	(put 'greatest-common-divisor '(polynomial polynomial)
 		(lambda (p1 p2) (tag (gcd-poly p1 p2))))
+	(put 'reduce '(polynomial polynomial)
+		(lambda (np dp) (map tag (reduce-poly np dp))))
+
 	(put 'make 'polynomial
 		(lambda (var terms) (tag (make-poly var terms))))
 	(put '=zero? '(polynomial) (lambda (p) (zero?-poly p)))
@@ -472,6 +507,9 @@
 
 (install-polynomial-package)
 (define (greatest-common-divisor v1 v2) (apply-generic 'greatest-common-divisor v1 v2))
+(define (reduce v1 v2)
+	(let ((rv (apply-generic 'reduce v1 v2)))
+		(cons (car rv) (cadr rv))))
 
 (define sample1 (make-polynomial 'x '((2 5) (1 3) (0 7))))
 (define sample2 (make-polynomial 'x '((2 2))))
@@ -507,19 +545,19 @@ sample1
 (add r1 r2)
 (newline)
 
-; (define add-rational-p1 (make-polynomial 'x '((2 1) (0 1))))
-; (define add-rational-p2 (make-polynomial 'x '((3 1) (0 1))))
-; (define rf (make-rational add-rational-p2 add-rational-p1))
+(define add-rational-p1 (make-polynomial 'x '((2 1) (0 1))))
+(define add-rational-p2 (make-polynomial 'x '((3 1) (0 1))))
+(define rf (make-rational add-rational-p2 add-rational-p1))
 
-; (display "add-rational-p1 ")add-rational-p1
-; (display "add-rational-p2 ")add-rational-p2
-; (newline)
-; (greatest-common-divisor add-rational-p1 add-rational-p2)
-; (newline)
+(display "add-rational-p1 ")add-rational-p1
+(display "add-rational-p2 ")add-rational-p2
+(newline)
+(greatest-common-divisor add-rational-p1 add-rational-p2)
+(newline)
 
-; (display "rf ")rf
+(display "rf ")rf
 
-; (add rf rf)
+(add rf rf)
 
 (newline)
 (define g-p1 (make-polynomial 'x '((4 1) (3 -1) (2 -2) (1 2))))
@@ -531,15 +569,32 @@ sample1
 (greatest-common-divisor g-p1 g-p2)
 
 (newline)
-(define p1 (make-polynomial 'x '((2 1) (1 -2) (0 1))))
-(define p2 (make-polynomial 'x '((2 11) (0 7))))
-(define p3 (make-polynomial 'x '((1 13) (0 5))))
+(define irreducible-p1 (make-polynomial 'x '((2 1) (1 -2) (0 1))))
+(define irreducible-p2 (make-polynomial 'x '((2 11) (0 7))))
+(define irreducible-p3 (make-polynomial 'x '((1 13) (0 5))))
 
-(display "p1 ")p1
-(display "p2 ")p2
-(display "p3 ")p3
-(define q1 (mul p1 p2))
-(define q2 (mul p1 p3))
+(display "p1 ")irreducible-p1
+(display "p2 ")irreducible-p2
+(display "p3 ")irreducible-p3
+(define q1 (mul irreducible-p1 irreducible-p2))
+(define q2 (mul irreducible-p1 irreducible-p3))
 (display "q1 ")q1
 (display "q2 ")q2
 (greatest-common-divisor q1 q2)
+
+(newline)
+(define p1 (make-polynomial 'x '((1 1)(0 1))))
+(display p1)(newline)
+(define p2 (make-polynomial 'x '((3 1)(0 -1))))
+(display p2)(newline)
+(define p3 (make-polynomial 'x '((1 1))))
+(display p3)(newline)
+(define p4 (make-polynomial 'x '((2 1)(0 -1))))
+(display p4)(newline)
+
+(define rf1 (make-rational p1 p2))
+(display rf1)(newline)
+(define rf2 (make-rational p3 p4))
+(display rf2)(newline)
+
+(add rf1 rf2)
