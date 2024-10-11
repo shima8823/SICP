@@ -1,10 +1,5 @@
 #lang racket
-(require rnrs/mutable-pairs-6)
-
-; (define (set-car! pair new-value)
-; 	(set! (car pair) new-value))
-; (define (set-cdr! pair new-value)
-; 	(set! (cdr pair) new-value))
+(require r5rs)
 
 (define (count-pairs x)
 	(if (not (pair? x))
@@ -13,34 +8,23 @@
 		   (count-pairs (cdr x))
 		   1)))
 
- (define q '(a b)) 
- (define r4 (cons q (cdr q))) 
- (count-pairs r4) ; 4 
- r4
+(define x4 '(foo)) 
+(define y4 (cons x4 x4)) 
+(define str4 (list y4)) 
+(count-pairs str4) ; 4 
 
+(define x7 '(foo)) 
+(define y7 (cons x7 x7)) 
+(define str7 (cons y7 y7)) 
+(count-pairs str7) ; 7
 
-(count-pairs '(a b c)) ; 正しい
-(count-pairs '((foo) foo foo)) ; 
+(define x-inf '(foo))
+(define y-inf (cons x-inf x-inf))
+(define str-inf (list y-inf))
+(set-car! x-inf str-inf)
+(count-pairs str-inf)
 
-
-(count-pairs '(((foo) foo) (foo) foo))
- (define x '(foo)) 
- (define y (cons x x)) 
- (define str2 (list y)) 
-str2
-
-(define z4
-  (let ([x (list 'a)])
-    (list x x)))
-	z4
-
-	(define z7
-  (let* ([x (list 'a)]
-         [y (cons x x)])
-    (cons y y)))
-	z7
 #|
-
 
 infinity loop = ポインタを輪にする
 
