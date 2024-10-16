@@ -60,3 +60,30 @@
 		(half-adder a s sum c2)
 		(or-gate c1 c2 c-out) 'ok))
 
+(define (ripple-carry-adder a-wires b-wires s-wires c)
+	(if (null? a-wires) 'ok
+		(let ((carry (make-wire)))
+			(full-adder (car a-wires) (car b-wires) c (car s-wires) carry)
+			(ripple-carry (cdr a-wires) (cdr b-wires) carry (cdr s-wires))
+		))
+)
+
+#|
+
+time
+	half-adder = or (* and 2) inventer
+	full-adder = (if only a) (+ 1half-adder or)
+				 (else) (+ (* 2 half-adder) or)
+	(* n (+ (* 2 half-adder) or))
+
+answer : https://sicp.iijlab.net/solution/ex3.3.html#ex3.30
+時間の考察
+full adder1段の時間の最大値は
+sumはhalf adderのsumの時間の2倍
+carryはhalf adderのsumの時間 + half adderのcarryの時間 + orの時間
+n段のときは(carry時間 × (n - 1))+ (max (carry時間, sum時間)
+
+carryとsumはcarry(n), sum(n)と考えるといい？
+そうすれば足し算なのが納得できる
+
+|#
