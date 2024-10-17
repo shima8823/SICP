@@ -234,3 +234,6 @@
 (set-signal! input-2 1)
 ; done
 (propagate)
+; carry 11 New-value = 1
+; sum 16 New-value = 0
+; done
