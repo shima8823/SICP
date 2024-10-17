@@ -153,6 +153,9 @@ propagateでagendaにある処理を全て実行する
 	(set! action-procedures
 		(cons proc action-procedures)))
 
+digital-circuit-simulator.rktのdebugからsignal-valueの初期値は0である。
+interverの次のwire、half-adderの場合はe、この初期値を1にするために初めに(proc)を実行する必要がある。
+
 補足 from http://community.schemewiki.org/?sicp-ex-3.31
 ・初期化段階でこれらのアクションを手動でトリガーする必要があります。
 ・関数要素の定義では add-action を使用します。初期化しないと、この機能要素がシステムに挿入された時刻はアジェンダに記録されません。そのため、アジェンダが propagate によってシミュレートされたときに、関数要素がまったくシミュレートされない可能性があります。
