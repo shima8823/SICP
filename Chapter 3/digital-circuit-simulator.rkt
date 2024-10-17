@@ -230,29 +230,6 @@
 ; carry 0 New-value = 0
 (half-adder input-1 input-2 sum carry)
 ; ok
-
-#|
-half-adderの各gateは
-初期化時には
-aciton-procedureにagendaに予定を追加する処理を追加し、
-agendaに予定を追加している
-
-set-signal!でagendaに予定(各ワイヤーの値を再度計算させる処理)を再追加
-
-propagateでagendaにある処理を全て実行する
-
-以下のようにした場合、値が計算されない
-
-(define (accept-action-procedure! proc)
-	(set! action-procedures
-		(cons proc action-procedures)))
-
-補足 from http://community.schemewiki.org/?sicp-ex-3.31
-・初期化段階でこれらのアクションを手動でトリガーする必要があります。
-・関数要素の定義では add-action を使用します。初期化しないと、この機能要素がシステムに挿入された時刻はアジェンダに記録されません。そのため、アジェンダが propagate によってシミュレートされたときに、関数要素がまったくシミュレートされない可能性があります。
-
-|#
-
 (set-signal! input-1 1)
 ; done
 (propagate)
