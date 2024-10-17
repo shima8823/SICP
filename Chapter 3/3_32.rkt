@@ -15,6 +15,20 @@
 		(car (front-ptr queue))))
 
 (define (insert-queue! queue item)
+	; (let ((new-pair (cons item '())))
+	; 	(cond
+	; 		((empty-queue? queue)
+	; 			(set-front-ptr! queue new-pair)
+	; 			(set-rear-ptr! queue new-pair)
+	; 		queue)
+	; 		(else
+	; 			(set-cdr! (rear-ptr queue) new-pair)
+	; 			(set-rear-ptr! queue new-pair)
+	; 		queue)))
+	(front-insert-queue! queue item)
+)
+
+(define (front-insert-queue! queue item)
 	(let ((new-pair (cons item '())))
 		(cond
 			((empty-queue? queue)
@@ -22,8 +36,8 @@
 				(set-rear-ptr! queue new-pair)
 			queue)
 			(else
-				(set-cdr! (rear-ptr queue) new-pair)
-				(set-rear-ptr! queue new-pair)
+				(set-cdr! new-pair (front-ptr queue))
+				(set-front-ptr! queue new-pair)
 			queue))))
 
 (define (delete-queue! queue)
@@ -229,7 +243,11 @@
 ; ok
 (set-signal! input-1 1)
 ; done
-(propagate)
+
+; queueのinsertをfront-incertにした時、1個ずつpropagateを実行すると
+; たまたま上手く実行されてしまうため、comment out!
+; (propagate)
+
 ; sum 8 New-value = 1 done
 ; -> or + and = s
 (set-signal! input-2 1)
@@ -240,3 +258,13 @@
 ; sum 16 New-value = 0
 ; -> 8 + and + interver + and = 16
 ; done
+
+#|
+
+最初に予定表にれたものを実行しないと、wireの値がおかしくなってしまう
+例えば2回目の(propagate)でintervalを呼んで(0になる)、
+half-adderの(and-gate d e s)が発火してしまう。
+そうすると(and-gate)の後に、それまでagendaに蓄えてきたイベントが発火することになる。
+よってwireの値が正しくなくなる。
+
+|#
