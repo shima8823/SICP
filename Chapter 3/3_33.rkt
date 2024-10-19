@@ -191,27 +191,31 @@
 		(constant 32 y)
 		'ok))
 
-(define C (make-connector))
-(define F (make-connector))
-(celsius-fahrenheit-converter C F)
+(define (averager a b c)
+	(let ((x (make-connector))  ; sum
+		  (y (make-connector))) ; 1/2
+		(adder a b x)
+		(multiplier x y c)
+		(constant (/ 1 2) y)
+		; (adder a b x)
+		; (multiplier c y x)
+		; (constant 2 y)
+		'ok)
+)
 
-(probe "Celsius temp " C)
-(probe "Fahrenheit temp " F)
+(define a (make-connector))
+(define b (make-connector))
+(define c (make-connector))
+(averager a b c)
+(probe "a       " a)
+(probe "b       " b)
+(probe "average " c)
+(set-value! a 4 'user)
 
-(set-value! C 25 'user)
-; Probe: Celsius temp = 25
-; Probe: Fahrenheit temp = 77
-; done
+(set-value! b 6 'user)
 
-; (set-value! F 212 'user)
-; Error! Contradiction (77 212)
+(forget-value! a 'user)
+(forget-value! b 'user)
 
-(forget-value! C 'user)
-; Probe: Celsius temp = ?
-; Probe: Fahrenheit temp = ?
-; done
-
-(set-value! F 212 'user)
-; Probe: Fahrenheit temp = 212
-; Probe: Celsius temp = 100
-; done
+(set-value! b 4 'user)
+(set-value! a 8 'user)
