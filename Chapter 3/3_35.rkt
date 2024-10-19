@@ -191,27 +191,48 @@
 		(constant 32 y)
 		'ok))
 
-(define C (make-connector))
-(define F (make-connector))
-(celsius-fahrenheit-converter C F)
+(define (squarer a b)
+	(define (process-new-value)
+		(if (has-value? b)
+			(if (< (get-value b) 0)
+				(error " square less than 0: SQUARER " (get-value b))
+				(set-value!
+					a
+					(sqrt (get-value b))
+				me))
+			(if (has-value? a)
+				(set-value!
+					b
+					(* (get-value a) (get-value a))
+				me))))
 
-(probe "Celsius temp " C)
-(probe "Fahrenheit temp " F)
+	(define (process-forget-value)
+		(forget-value! b me)
+		(forget-value! a me)
+		(process-new-value))
 
-(set-value! C 25 'user)
-; Probe: Celsius temp = 25
-; Probe: Fahrenheit temp = 77
-; done
+	(define (me request) 
+		(cond
+			((eq? request 'I-have-a-value)
+				(process-new-value))
+			((eq? request 'I-lost-my-value)
+				(process-forget-value))
+			(else
+				(error "Unknown request : SQUARER" request))))
+	(connect a me)
+	(connect b me)
+	me)
 
-; (set-value! F 212 'user)
-; Error! Contradiction (77 212)
+(define a (make-connector))
+(define b (make-connector))
+(squarer a b)
 
-(forget-value! C 'user)
-; Probe: Celsius temp = ?
-; Probe: Fahrenheit temp = ?
-; done
+(probe "a " a)
+(probe "b " b)
 
-(set-value! F 212 'user)
-; Probe: Fahrenheit temp = 212
-; Probe: Celsius temp = 100
-; done
+(set-value! b 4 'user)
+(get-value a)
+
+(forget-value! b 'user)
+(get-value a)
+(set-value! a 50 'user)
