@@ -191,3 +191,14 @@
 		(constant 32 y)
 		'ok))
 
+(define a (make-connector))
+(define b (make-connector))
+(set-value! a 10 'user)
+
+#|
+
+環境図を書くほどのものか？
+b = 初期時のmake-conector
+a = value=10, informant='user
+
+|#
