@@ -177,23 +177,42 @@
 	(connect connector me)
 	me)
 
-(define (celsius-fahrenheit-converter c f)
-	(let ((u (make-connector))
-		  (v (make-connector))
-		  (w (make-connector))
-		  (x (make-connector))
-		  (y (make-connector)))
-		(multiplier c w u)
-		(multiplier v x u)
-		(adder v y f)
-		(constant 9 w)
-		(constant 5 x)
-		(constant 32 y)
-		'ok))
+(define (c+ x y)
+	(let ((z (make-connector)))
+		(adder x y z)
+	z))
+
+(define (c- x y)
+	(let ((z (make-connector)))
+		(adder y z x)
+	z))
+
+(define (c* x y)
+	(let ((z (make-connector)))
+		(multiplier x y z)
+	z))
+
+(define (c/ x y)
+	(let ((z (make-connector)))
+		(multiplier y z x)
+	z))
+
+(define (cv x)
+	(let ((c (make-connector)))
+		(constant x c)
+	c))
+
+(define (celsius-fahrenheit-converter x)
+	(c+
+		(c* 
+			(c/
+				(cv 9)
+				(cv 5))
+			x)
+		(cv 32)))
 
 (define C (make-connector))
-(define F (make-connector))
-(celsius-fahrenheit-converter C F)
+(define F (celsius-fahrenheit-converter C))
 
 (probe "Celsius temp " C)
 (probe "Fahrenheit temp " F)
