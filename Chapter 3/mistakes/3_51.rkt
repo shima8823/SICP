@@ -1,5 +1,5 @@
-#lang racket
-(require (prefix-in strm: racket/stream))
+; 良問 感動した
+#lang sicp
 
 (define (list-ref items n)
 	(if (= n 0)
@@ -14,12 +14,20 @@
 )
 
 (define-syntax cons-stream
-  (syntax-rules ()
-	((_ a b) (strm:stream-cons a b))))
-(define stream-car strm:stream-first)
-(define stream-cdr strm:stream-rest)
-(define stream-null? strm:stream-empty?)
-(define the-empty-stream strm:empty-stream)
+	(syntax-rules ()
+		((_ a b) (cons a (delay b)))))
+(define (stream-car stream) (car stream))
+(define (stream-cdr stream) (force (cdr stream)))
+(define-syntax delay
+	(syntax-rules ()
+		((_ exp) (lambda () exp))))
+(define (force delayed-obj)
+	(delayed-obj))
+
+(define (stream-ref s n)
+	(if (= n 0)
+		(stream-car s)
+		(stream-ref (stream-cdr s) (- n 1))))
 
 (define (stream-map proc s)
 	(if (stream-null? s)
@@ -52,12 +60,14 @@
 		show
 		(stream-enumerate-interval 0 10)))
 
+(newline)
 (stream-ref x 5)
 (stream-ref x 7)
 
 #|
 
-指定数字以外はdisplayされない
+memo化してないから再び1から始まっている。
+想定通りの動き！
 
 |#
 
