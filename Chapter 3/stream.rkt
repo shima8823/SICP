@@ -1,5 +1,4 @@
-#lang racket
-(require (prefix-in strm: racket/stream))
+#lang sicp
 
 (define (divides? a b) (= (remainder b a) 0))
 (define (square x) (* x x))
@@ -16,17 +15,20 @@
 	(= n (smallest-divisor n)))
 
 (define-syntax cons-stream
-  (syntax-rules ()
-	((_ a b) (strm:stream-cons a b))))
-(define stream-car strm:stream-first)
-(define stream-cdr strm:stream-rest)
-(define stream-null? strm:stream-empty?)
-(define the-empty-stream strm:empty-stream)
+	(syntax-rules ()
+		((_ a b) (cons a (delay b)))))
+(define (stream-car stream) (car stream))
+(define (stream-cdr stream) (force (cdr stream)))
+(define-syntax delay
+	(syntax-rules ()
+		((_ exp) (lambda () exp))))
+(define (force delayed-obj)
+	(delayed-obj))
 
-; (define (stream-ref s n)
-; 	(if (= n 0)
-; 		(stream-car s)
-; 		(stream-ref (stream-cdr s) (- n 1))))
+(define (stream-ref s n)
+	(if (= n 0)
+		(stream-car s)
+		(stream-ref (stream-cdr s) (- n 1))))
 
 (define (stream-map proc s)
 	(if (stream-null? s)
@@ -42,9 +44,6 @@
 (define (display-stream s)
 	(stream-for-each display-line s))
 (define (display-line x) (newline) (display x))
-
-; (define (stream-car stream) (car stream))
-; (define (stream-cdr stream) (force (cdr stream)))
 
 (define (stream-enumerate-interval low high)
 	(if (> low high)

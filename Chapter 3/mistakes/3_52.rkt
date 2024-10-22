@@ -1,15 +1,21 @@
 ; 良問
-
-#lang racket
-(require (prefix-in strm: racket/stream))
+#lang sicp
 
 (define-syntax cons-stream
-  (syntax-rules ()
-	((_ a b) (strm:stream-cons a b))))
-(define stream-car strm:stream-first)
-(define stream-cdr strm:stream-rest)
-(define stream-null? strm:stream-empty?)
-(define the-empty-stream strm:empty-stream)
+	(syntax-rules ()
+		((_ a b) (cons a (delay b)))))
+(define (stream-car stream) (car stream))
+(define (stream-cdr stream) (force (cdr stream)))
+(define-syntax delay
+	(syntax-rules ()
+		((_ exp) (lambda () exp))))
+(define (force delayed-obj)
+	(delayed-obj))
+
+(define (stream-ref s n)
+	(if (= n 0)
+		(stream-car s)
+		(stream-ref (stream-cdr s) (- n 1))))
 
 (define (stream-map proc s)
 	(if (stream-null? s)
@@ -53,16 +59,16 @@
 	(stream-map
 		accum
 		(stream-enumerate-interval 1 20)))
-sum
+; sum
 
 (define y (stream-filter even? seq))
-sum
+; sum
 (define z
 	(stream-filter
 		(lambda (x)
 			(= (remainder x 5) 0))
 		seq))
-sum
+; sum
 (stream-ref y 7)
 #|
 1 3 6 10 15 21 28 36 45 55 66 78 91 105 120 136
