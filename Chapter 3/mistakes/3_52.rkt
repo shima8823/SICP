@@ -59,55 +59,63 @@
 	(stream-map
 		accum
 		(stream-enumerate-interval 1 20)))
+
+; sum = 1
+; seq = (1 stream...)
 ; sum
 
 (define y (stream-filter even? seq))
-; sum
+; sum = 6
+sum
+
 (define z
 	(stream-filter
 		(lambda (x)
 			(= (remainder x 5) 0))
 		seq))
-; sum
+; seq = 1 stream...
+; 8(6+2) 11 15
+; sum = 15
+sum
+
 (stream-ref y 7)
 #|
 1 3 6 10 15 21 28 36 45 55 66 78 91 105 120 136
-'(6 10 28 36 66 78 120 136)
+sum = 15: (set! sum (+ x sum))
+19(4+15) 24 30 37 45 54 64 75 87 100 114 129 145 162
+'(6 24 30 54 64 100 114 162)
 indexは0から。
 
-sum=136
+sum=162
 
 出力
-136
+162
 
 |#
 
 (display-stream z)
 
 #|
-'(1 3 6 10 15 21 28 36 45 55 66 78 91 105 120 136 stream...)
-
-sumはなぜseqを使った計算の後、より大きなsumを記録するのか？
-seqがstream-mapですでに計算した後の列を上のように保持しているため。
+sum = 162
+167(5+162) 173 180 188 197 207 218 230 243 257 272 288 305 323 342 362 |21以上 383 405
+'(15 180 230 305)
 
 出力
-10
 15
-45
-55
-105
-120
-190
-210
+180
+230
+305done
 
 |#
 
+; sum = 362
+
 (stream-ref seq 2)
-sum
 #|
 
+364 367
+
 output
-6
-210
+367
 
 |#
