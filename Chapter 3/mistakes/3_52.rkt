@@ -6,8 +6,18 @@
 		((_ a b) (cons a (delay b)))))
 (define (stream-car stream) (car stream))
 (define (stream-cdr stream) (force (cdr stream)))
+(define (memo-proc proc)
+	(let ((already-run? false) (result false))
+		(lambda ()
+			(if (not already-run?)
+				(begin (set! result (proc))
+					   (set! already-run? true)
+						result)
+				result))))
+
 (define-syntax delay
 	(syntax-rules ()
+		; ((_ exp) (memo-proc (lambda () exp)))))
 		((_ exp) (lambda () exp))))
 (define (force delayed-obj)
 	(delayed-obj))
