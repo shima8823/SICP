@@ -12,7 +12,18 @@
 	stream-for-each
 	stream-enumerate-interval
 	display-stream
-	display-line)
+	display-line
+	display-stream-until
+
+	ones
+	integers
+	add-streams
+	sub-streams
+	mul-streams
+	div-streams
+
+	scale-stream
+	)
 
 ; define
 
@@ -66,3 +77,27 @@
 (define (display-stream s)
 	(stream-for-each display-line s))
 (define (display-line x) (newline) (display x))
+
+(define (display-stream-until n stream)
+	(define (iter i)
+		(display (stream-ref stream i))(newline)
+		(if (= n i)
+			'done
+			(iter (+ i 1))))
+	(display (iter 0)) (newline) ; done\n
+	(newline)
+)
+
+(define ones (cons-stream 1 ones))
+(define integers
+	(cons-stream 1 (add-streams ones integers)))
+
+(define (add-streams s1 s2) (stream-map + s1 s2))
+(define (sub-streams s1 s2) (stream-map - s1 s2))
+(define (mul-streams s1 s2) (stream-map * s1 s2))
+(define (div-streams s1 s2) (stream-map / s1 s2))
+
+(define (scale-stream stream factor)
+	(stream-map
+		(lambda (x) (* x factor))
+		stream))
