@@ -1,7 +1,7 @@
 ; 良問 解釈ができなかった
 
 #lang sicp
-(#%require "./stream_basic_components.rkt")
+(#%require "../stream_basic_components.rkt")
 
 (define (expand num den radix)
 	(cons-stream
