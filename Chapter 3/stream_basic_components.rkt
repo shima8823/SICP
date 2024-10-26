@@ -10,6 +10,7 @@
 	stream-ref
 	stream-map
 	stream-for-each
+	stream-filter
 	stream-enumerate-interval
 	display-stream
 	display-line
@@ -23,6 +24,8 @@
 	div-streams
 
 	scale-stream
+
+	merge
 	)
 
 ; define
@@ -67,6 +70,16 @@
 		(begin (proc (stream-car s))
 			(stream-for-each proc (stream-cdr s)))))
 
+(define (stream-filter pred stream)
+	(cond ((stream-null? stream) the-empty-stream)
+		  ((pred (stream-car stream))
+			(cons-stream
+				(stream-car stream)
+				(stream-filter
+					pred
+					(stream-cdr stream))))
+		  (else (stream-filter pred (stream-cdr stream)))))
+
 (define (stream-enumerate-interval low high)
 	(if (> low high)
 		the-empty-stream
@@ -101,3 +114,23 @@
 	(stream-map
 		(lambda (x) (* x factor))
 		stream))
+
+(define (merge s1 s2)
+	(cond ((stream-null? s1) s2)
+		  ((stream-null? s2) s1)
+		  (else
+			(let ((s1car (stream-car s1))
+				  (s2car (stream-car s2)))
+				(cond
+					((< s1car s2car)
+						(cons-stream
+							s1car
+							(merge (stream-cdr s1) s2)))
+					((> s1car s2car)
+						(cons-stream
+							s2car
+							(merge s1 (stream-cdr s2))))
+					(else
+						(cons-stream
+							s1car
+							(merge (stream-cdr s1) (stream-cdr s2)))))))))
