@@ -46,8 +46,8 @@
 
 (define-syntax delay
 	(syntax-rules ()
-		; ((_ exp) (memo-proc (lambda () exp)))))
-		((_ exp) (lambda () exp))))
+		((_ exp) (memo-proc (lambda () exp)))))
+		; ((_ exp) (lambda () exp))))
 (define (force delayed-obj)
 	(delayed-obj))
 
