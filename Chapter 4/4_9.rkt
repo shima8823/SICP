@@ -14,23 +14,6 @@
 
 #|
 
-(begin
-	body
-	(true? condtion)
-	body
-	(true? condtion))
-
-(do
-	body
-(while condtions))
-=(do body condtions)
-
-body
-recur
-(if (true? condtions)
-	body)
-
-
 sequence->exp
 	body
 	(set! i (+ i 1))
@@ -70,35 +53,20 @@ sequence->exp
 (define (do-variable-name v) (car v))
 (define (do-variable-init v) (cadr v))
 (define (do-variable-set v) (caddr v))
-(define (do-body exp) (cadddr exp))
+(define (do-body exp) (cdddr exp))
 (define (do-condtion exp) (car (caddr exp)))
 (define (do-return-value exp) (cadr (caddr exp)))
 
 (define (do-make-body body variables)
-	(display (list
-		'define '(body) 
-		(list
-			'sequence->exp
-			(cons
-				body
-				(map
-					(lambda (v)
-						(list 'set! (do-variable-name v) (do-variable-set v)))
-					variables))
-			)
-		))(newline)
 	(list
-		'define '(body) 
-		(list
-			'sequence->exp
+		'define '(body)
+		(sequence->exp
 			(cons
-				body
+				(sequence->exp body)
 				(map
 					(lambda (v)
 						(list 'set! (do-variable-name v) (do-variable-set v)))
-					variables))
-			)
-		))
+					variables)))))
 
 (define (do-make-loop body condtion return-value)
 	(list
@@ -108,21 +76,17 @@ sequence->exp
 			; (list 'true? condtion) 
 			condtion
 			return-value
-			(list
-				'sequence->exp
-				(list body '(loop)))
+			(sequence->exp (list '(body) '(loop)))
 			)
 		))
 
 (define (do->let exp)
-	
 	(list
-		; (sequence->exp (map (lambda (v) (list 'define (do-variable-name v) (do-variable-init v))) (do-variables exp)))
 		'let
 		(map (lambda (v) (list (do-variable-name v) (do-variable-init v))) (do-variables exp))
 		(do-make-body (do-body exp) (do-variables exp))
 		(do-make-loop (do-body exp) (do-condtion exp) (do-return-value exp))
-		(list 'sequence->exp (list (do-body exp) '(loop)))
+		(sequence->exp (list (sequence->exp (do-body exp)) '(loop)))
 		))
 
 (do->let
@@ -133,6 +97,9 @@ sequence->exp
 			))
 
 (define ns (make-base-namespace))
+
+(eval '(define (last-exp? seq) (null? (cdr seq))) ns)
+(eval '(define (make-begin seq) (cons 'begin seq)) ns)
 (eval '(define (sequence->exp seq)
 		(display seq)(newline)
          (cond ((null? seq) seq)
@@ -153,38 +120,16 @@ sequence->exp
 
 (let ((i 1) (sum 0))
 	(define (body)
-		(sequence->exp
-			(display i)
-			((set! i (+ i 1))
-			 (set! sum (+ sum i)))))
-	(define (loop)
-		(if (true? (> i 10))
-			sum
-			(sequence->exp
-				((display i)
-				 loop))))
-	(sequence->exp
-		((display i)
-		 loop)))
-
-
-(let ((i 1) (sum 0))
-	(define (body)
-		(sequence->exp
-			((display i)
-			 (set! i (+ i 1))
-			 (set! sum (+ sum i)))))
+		(begin
+			(begin (display i) (newline))
+			(set! i (+ i 1))
+			(set! sum (+ sum i))))
+	
 	(define (loop)
 		(if (> i 10)
 			sum
-			(sequence->exp
-				((display i) (loop)))))
-	(sequence->exp ((display i) (loop))))
-
-
-
-
-(sequence->exp
-	((display i) (set! i (+ i 1)) (set! sum (+ sum i))))
+			(begin (body) (loop))))
+			
+	(begin ((display i) (newline)) (loop)))
 
 |#
