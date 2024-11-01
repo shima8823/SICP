@@ -5,12 +5,13 @@
 (define the-empty-environment '())
 
 (define (make-frame variables values)
-	(cons variables values))
-(define (frame-variables frame) (car frame))
-(define (frame-values frame) (cdr frame))
+	(map (lambda (var val) (cons var val)) variables values))
+	; (lambda ...) -> consにするべき
+(define (frame-variables frame) (map car frame))
+(define (frame-values frame) (map cdr frame))
 (define (add-binding-to-frame! var val frame)
-	(set-car! frame (cons var (car frame)))
-	(set-cdr! frame (cons val (cdr frame))))
+	(set-cdr! frame frame)
+	(set-car! frame (cons var val)))
 
 (define (extend-environment vars vals base-env)
 	(if (= (length vars) (length vals))
@@ -35,22 +36,24 @@
 					(frame-values frame)))))
 	(env-loop env))
 
+; scanした後setを更新する必要あるかも
 (define (set-variable-value! var val env)
-(define (env-loop env)
-	(define (scan vars vals)
-		(cond
-			((null? vars)
-				(env-loop (enclosing-environment env)))
-			((eq? var (car vars)) (set-car! vals val))
-			(else (scan (cdr vars) (cdr vals)))))
-	(if (eq? env the-empty-environment)
-		(error " Unbound variable : SET! " var)
-		(let ((frame (first-frame env)))
-			(scan
-				(frame-variables frame)
-				(frame-values frame)))))
+	(define (env-loop env)
+		(define (scan vars vals)
+			(cond
+				((null? vars)
+					(env-loop (enclosing-environment env)))
+				((eq? var (car vars)) (set-car! vals val))
+				(else (scan (cdr vars) (cdr vals)))))
+		(if (eq? env the-empty-environment)
+			(error " Unbound variable : SET! " var)
+			(let ((frame (first-frame env)))
+				(scan
+					(frame-variables frame)
+					(frame-values frame)))))
 	(env-loop env))
 
+; scanした後setを更新する必要あるかも
 (define (define-variable! var val env)
 	(let ((frame (first-frame env)))
 		(define (scan vars vals)
