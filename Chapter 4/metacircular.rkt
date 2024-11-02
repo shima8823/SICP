@@ -1,5 +1,10 @@
 #lang sicp
 
+(#%require (only racket/base module+)) ; import module+
+(#%require (only racket/base provide)) ; import provide
+(#%require (only racket/base all-defined-out)) ; import symbol represent All Procedure
+(provide (all-defined-out))	; Export
+
 (define (eval exp env)
 	(cond
 		((self-evaluating? exp) exp)
@@ -239,7 +244,6 @@
 	(list 'cons cons)
 	(list 'null? null?)
 
-	(list 'append append)
 	; ⟨more primitives⟩
 	))
 
@@ -294,7 +298,10 @@
 			'<procedure-env>))
 	(display object)))
 
-(driver-loop)
+; separate execute module because imported all-defined-out don't provide.
+(module+ main
+	(driver-loop)
+)
 
 #|
 
