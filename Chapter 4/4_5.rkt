@@ -1,6 +1,10 @@
 ; return
 
-#lang sicp
+#lang racket
+
+(require (except-in sicp eval))
+(require (except-in "./metacircular.rkt" expand-clauses))
+
 
 (define (assoc key records)
 	(cond
@@ -9,12 +13,8 @@
 		(else (assoc key (cdr records)))))
 
 ; (cond
-; 	((assoc 'b '((a 1) (b 2))) => cadr)
+; 	((equal? '(ab cb) '(ab cb)) => (lambda (x) (display "hello ") x))
 ; 	(else false))
-
-(cond
-	((equal? '(ab cb) '(ab cb)) => (lambda (x) (display "hello ") x))
-	(else false))
 
 (define (expand-clauses clauses)
 	(if (null? clauses)
@@ -34,3 +34,20 @@
 					(expand-clauses rest))))))
 
 (define (cond-recipient? exp) (eq? (first-exp exp) '=>))
+
+#|
+
+
+(define (assoc key records)
+	(cond
+		((null? records) false)
+		((equal? key (caar records)) (car records))
+		(else (assoc key (cdr records)))))
+
+(cond
+	((assoc 'b '((a 1) (b 2))) => cadr)
+	(else false))
+
+|#
+
+(driver-loop)
