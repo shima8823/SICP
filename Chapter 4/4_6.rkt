@@ -1,5 +1,3 @@
-; return
-
 #lang sicp
 
 (define (eval exp env)
@@ -35,3 +33,6 @@
 			(map car (let-define-pairs exp))
 			(let-body exp))
 		(map cadr (let-define-pairs exp))))
+
+; (let->combination '(let ((x 10) (y 11)) (* x y)))
+; (let->combination '(let ((x 10) (y 11)) (define (mul x y) (* x y)) (mul x y)))
