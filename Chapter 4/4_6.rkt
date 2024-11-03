@@ -15,7 +15,7 @@
 				(lambda-parameters exp)
 				(lambda-body exp)
 				env))
-		((let? exp) (eval (let-combination exp) env))
+		((let? exp) (eval (let->combination exp) env))
 		((begin? exp) (eval-sequence (begin-actions exp) env))
 		((cond? exp) (eval (cond->if exp) env))
 		((application? exp)
@@ -27,7 +27,7 @@
 
 (define (let? exp) (tagged-list? exp 'let))
 (define (let-define-pairs exp) (cadr exp))
-(define (let-body exp) (caddr exp))
+(define (let-body exp) (cddr exp))
 
 (define (let->combination exp)
 	(cons ; mapでリストがreturnされる ((exp) (exp) (exp))。よってconsで前にlambdaを追加する
