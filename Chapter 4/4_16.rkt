@@ -18,6 +18,7 @@
 				(lambda-parameters exp)
 				(lambda-body exp)
 				env))
+		((let? exp) (eval (let->combination exp) env))
 		((begin? exp) (eval-sequence (begin-actions exp) env))
 		((cond? exp) (eval (cond->if exp) env))
 		((application? exp)
@@ -201,7 +202,11 @@
 			(cond
 				((null? vars)
 					(env-loop (enclosing-environment env)))
-				((eq? var (car vars)) (car vals))
+				; Answer a
+				((eq? var (car vars))
+					(if (eq? (car vals) '*unassigned*)
+						(error "Unassigned variable " var)
+						(car vals)))
 				(else (scan (cdr vars) (cdr vals)))))
 		(if (eq? env the-empty-environment)
 			(error " Unbound variable " var)
@@ -243,6 +248,7 @@
 	(list 'cdr cdr)
 	(list 'cons cons)
 	(list 'null? null?)
+	(list '* *)
 
 	; ⟨more primitives⟩
 	))
@@ -297,6 +303,43 @@
 			(procedure-body object)
 			'<procedure-env>))
 	(display object)))
+
+(define (let? exp) (tagged-list? exp 'let))
+(define (let-define-pairs exp) (cadr exp))
+(define (let-body exp) (cddr exp))
+
+(define (let->combination exp)
+	(cons ; mapでリストがreturnされる ((exp) (exp) (exp))。よってconsで前にlambdaを追加する
+		(make-lambda
+			(map car (let-define-pairs exp))
+			(let-body exp))
+		(map cadr (let-define-pairs exp))))
+
+(define (get-defines exp)
+	(if (eq? (operator exp) 'define)
+		(ca exp)))
+
+; Answer b
+(define (scan-out-defines exp)
+	(list
+		'let
+		
+		
+		)
+	)
+
+#|
+
+Answer c
+make-procedureに組み込むべきである。
+procedure-bodyはユーザが定義した関数のbodyを取得する時に使われる。
+このときdefineされたものを展開するコードに変換するとユーザが定義した機能が失われたり、
+ユーザの権限を損なわれたりする。
+また、procedure-bodyという役割はprocedureの名前に対して実装部分もgetする処理なので勝手に変換する機能を組み込むのはそぐわないはず。
+よってシステム側のmake-procedureに組み込むべきである。
+
+|#
+
 
 ; separate execute module because imported all-defined-out don't provide.
 (module+ main
