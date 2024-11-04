@@ -19,6 +19,7 @@
 				(lambda-body exp)
 				env))
 		((let? exp) (eval (let->combination exp) env))
+		((letrec? exp) (eval (letrec->let exp) env))
 		((begin? exp) (eval-sequence (begin-actions exp) env))
 		((cond? exp) (eval (cond->if exp) env))
 		((application? exp)
@@ -364,6 +365,43 @@
 		(lambda (n)
 			(if (= n 1) 1 (* n (fact (- n 1)))))))
 	(fact 10))
+
+(define (letrec? exp) (tagged-list? exp 'letrec))
+(define (letrec-variable def) (car def))
+(define (letrec-value def) (cadr def))
+(define (letrec->let exp)
+	(list
+		'let
+		(map 
+			(lambda (def)
+				(list (letrec-variable def) ''*unassigned*))
+			(let-define-pairs exp))
+		(sequence->exp
+			(map
+				(lambda (def)
+					(list
+						'set!
+						(letrec-variable def)
+						(letrec-value def)))
+				(let-define-pairs exp)))
+		(sequence->exp (let-body exp))))
+
+(letrec->let 
+	'(letrec
+	((fact
+		(lambda (n)
+			(if (= n 1) 1 (* n (fact (- n 1)))))))
+	(fact 10))
+)
+
+#|
+
+(let ((fact (quote *unassigned*)))
+	(set! fact
+		(lambda (n) (if (= n 1) 1 (* n (fact (- n 1))))))
+	(fact 10)
+)
+|#
 
 (module+ main
 	(driver-loop)
