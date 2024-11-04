@@ -403,6 +403,28 @@
 )
 |#
 
+#|
+
+b.
+(define (f x)
+	(letrec
+		((even? (lambda (n)	(if (= n 0) true (odd? (- n 1)))))
+		 (odd? (lambda (n) (if (= n 0) false (even? (- n 1))))))
+	(even? x)))
+
+	(even? ... *unassigned*)
+	(odd? ... *unassigned*)
+(f 5)
+	(even? ... odd?)
+	(odd? ... even?)
+
+⼿続きの中で define を使いたくないなら let を使えばいいじゃないか
+それだと相互再帰が書けない。(ということをずっと話してきたんじゃないのか？)
+(define (even? ... odd?)) -> oddない
+(define (odd? ... even?))
+
+|#
+
 (module+ main
 	(driver-loop)
 )
