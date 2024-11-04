@@ -1,3 +1,5 @@
+; metacircularを理解するのに 良問 
+
 #lang sicp
 
 (#%require (only racket/base module+)) ; import module+
@@ -54,12 +56,20 @@
 		(eval (if-alternative exp) env)))
 
 (define (eval-sequence exps env)
+	; (display "eval-sequence: ") (display exps)(newline)
 	(cond
 		((last-exp? exps)
 			(eval (first-exp exps) env))
 		(else
 			(eval (first-exp exps) env)
 			(eval-sequence (rest-exps exps) env))))
+
+#|
+
+(let ((even? *unassigned*) (odd? *unassigned*))
+	(begin (set! even? (lambda (n) (if (= n 0) true (odd? (- n 1))))) (set! odd? (lambda (n) (if (= n 0) false (even? (- n 1)))))) (if (even? x) (quote even) (quote odd)))
+
+|#
 
 (define (eval-assignment exp env)
 	(set-variable-value!
@@ -170,7 +180,9 @@
 (define (false? x) (eq? x false))
 
 (define (make-procedure parameters body env)
-	(list 'procedure parameters body env))
+	; (display "make-procedure :")(display (list 'procedure parameters (scan-out-defines body)))(newline)
+	; (list 'procedure parameters body env))
+	(list 'procedure parameters (scan-out-defines body) env))
 (define (compound-procedure? p)
 	(tagged-list? p 'procedure))
 (define (procedure-parameters p) (cadr p))
@@ -204,7 +216,7 @@
 					(env-loop (enclosing-environment env)))
 				; Answer a
 				((eq? var (car vars))
-					(if (eq? (car vals) '*unassigned*)
+					(if (eq? (car vals) ''*unassigned*)
 						(error "Unassigned variable " var)
 						(car vals)))
 				(else (scan (cdr vars) (cdr vals)))))
@@ -249,6 +261,8 @@
 	(list 'cons cons)
 	(list 'null? null?)
 	(list '* *)
+	(list '= =)
+	(list '- -)
 
 	; ⟨more primitives⟩
 	))
@@ -309,24 +323,87 @@
 (define (let-body exp) (cddr exp))
 
 (define (let->combination exp)
+; (display (cons ; mapでリストがreturnされる ((exp) (exp) (exp))。よってconsで前にlambdaを追加する
+; 		(make-lambda
+; 			(map car (let-define-pairs exp))
+; 			(let-body exp))
+; 		(map cadr (let-define-pairs exp))))
 	(cons ; mapでリストがreturnされる ((exp) (exp) (exp))。よってconsで前にlambdaを追加する
 		(make-lambda
 			(map car (let-define-pairs exp))
 			(let-body exp))
 		(map cadr (let-define-pairs exp))))
 
-(define (get-defines exp)
-	(if (eq? (operator exp) 'define)
-		(ca exp)))
+#|
+(let () 5)
+
+(cons (lambda () 5)) ())
+(eval ((lambda () 5))) -> infinity loop
+->
+(eval (lambda () 5)))
+(make-procedure)
+	'(procedure '() (scan-out-defines '(5)) env)
+		(scan-out-defines '(5))
+			('(let '() (begin '()) 5))
+
+(self-apply '('(let '() (begin '()) 5)) '())
+
+
+(lambda ⟨vars⟩
+	(define u ⟨e1⟩)
+	(define v ⟨e2⟩)
+	⟨e3⟩)
+
+(lambda ⟨vars⟩
+	(let ((u '*unassigned*)
+		  (v '*unassigned*))
+		(set! u ⟨e1⟩)
+		(set! v ⟨e2⟩)
+		⟨e3⟩))
+
+(lambda ⟨vars⟩
+	(define (fu) ⟨e1⟩)
+	(define (fv n) ⟨e2⟩)
+	⟨e3⟩)
+
+(lambda ⟨vars⟩
+	(let ((fu '*unassigned*)
+		  (fv '*unassigned*))
+		(set! fu (lambda ⟨e1⟩))
+		(set! fv (lambda ⟨e2⟩ + let))
+		⟨e3⟩))
+
+|#
+
 
 ; Answer b
 (define (scan-out-defines exp)
-	(list
-		'let
-		
-		
-		)
-	)
+	(define (get-defines exp)
+		(if (definition? (car exp))
+			(cons (car exp) (get-defines (cdr exp)))
+			'()))
+	(define (get-body exp)
+		(if (definition? (car exp))
+			(get-body (cdr exp))
+			(car exp)))
+	(if (definition? (car exp))
+		(list (list
+			'let
+			(map
+				(lambda (def)
+					(list (definition-variable def) ''*unassigned*))
+				(get-defines exp))
+			(sequence->exp
+				(map
+					(lambda (def)
+						(list
+							'set!
+							(definition-variable def)
+							(definition-value def)))
+					(get-defines exp)))
+			(get-body exp)
+			))
+		exp))
 
 #|
 
@@ -338,10 +415,37 @@ procedure-bodyはユーザが定義した関数のbodyを取得する時に使�
 また、procedure-bodyという役割はprocedureの名前に対して実装部分もgetする処理なので勝手に変換する機能を組み込むのはそぐわないはず。
 よってシステム側のmake-procedureに組み込むべきである。
 
+
+(define (f x)
+	(define (even? n) (if (= n 0) true (odd? (- n 1))))
+	(define (odd? n) (if (= n 0) false (even? (- n 1))))
+	(if (even? x)
+		'even
+		'odd))
+
+
 |#
 
+(scan-out-defines
+	'((define (even? n) (if (= n 0) true (odd? (- n 1))))
+	  (define (odd? n) (if (= n 0) false (even? (- n 1))))
+	  (if (even? x)
+		'even
+		'odd))
+)
 
-; separate execute module because imported all-defined-out don't provide.
+#|
+
+((let ((even? *unassigned*)
+	  (odd? *unassigned*))
+	(begin
+		(set! even?
+			(lambda (n) (if (= n 0) true (odd? (- n 1)))))
+		(set! odd?
+			(lambda (n) (if (= n 0) false (even? (- n 1))))))
+	x))
+|#
+
 (module+ main
 	(driver-loop)
 )
