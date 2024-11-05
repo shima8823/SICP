@@ -1,5 +1,6 @@
 #lang sicp
 
+(#%require (only racket/base time)) ; import time
 (#%require (only racket/base module+)) ; import module+
 (#%require (only racket/base provide)) ; import provide
 (#%require (only racket/base all-defined-out)) ; import symbol represent All Procedure
@@ -310,6 +311,8 @@
 	(list 'cons cons)
 	(list 'null? null?)
 	(list 'display display)
+	(list '+ +)
+	(list '= =)
 
 	; ⟨more primitives⟩
 	))
@@ -346,7 +349,7 @@
 (define (driver-loop)
 	(prompt-for-input input-prompt)
 	(let ((input (read)))
-		(let ((output (eval input the-global-environment)))
+		(let ((output (time (eval input the-global-environment))))
 			(announce-output output-prompt)
 			(user-print output)))
 	(driver-loop))
@@ -368,3 +371,10 @@
 (module+ main
 	(driver-loop)
 )
+
+#|
+
+(fib 100000)
+cpu time: 320 real time: 337 gc time: 40
+
+|#
