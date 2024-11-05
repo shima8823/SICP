@@ -1,3 +1,5 @@
+; line 74
+
 #lang sicp
 
 (#%require (only racket/base module+)) ; import module+
@@ -56,19 +58,59 @@
 		  (bproc (analyze-sequence (lambda-body exp))))
 		(lambda (env) (make-procedure vars bproc env))))
 
+; (define (analyze-sequence exps)
+; 	(define (sequentially proc1 proc2)
+; 		(lambda (env) (proc1 env) (proc2 env)))
+; 	(define (loop first-proc rest-procs)
+; 		(if (null? rest-procs)
+; 			first-proc
+; 			(loop
+; 				(sequentially first-proc (car rest-procs))
+; 				(cdr rest-procs))))
+; 	(let ((procs (map analyze exps)))
+; 		(if (null? procs)
+; 			(error " Empty sequence : ANALYZE "))
+; 			(loop (car procs) (cdr procs))))
+
+; Alyssa
 (define (analyze-sequence exps)
-	(define (sequentially proc1 proc2)
-		(lambda (env) (proc1 env) (proc2 env)))
-	(define (loop first-proc rest-procs)
-		(if (null? rest-procs)
-			first-proc
-			(loop
-				(sequentially first-proc (car rest-procs))
-				(cdr rest-procs))))
+	(define (execute-sequence procs env)
+		(cond
+			((null? (cdr procs))
+				((car procs) env))
+			(else
+				((car procs) env)
+				(execute-sequence (cdr procs) env))))
 	(let ((procs (map analyze exps)))
 		(if (null? procs)
 			(error " Empty sequence : ANALYZE "))
-			(loop (car procs) (cdr procs))))
+		(lambda (env)
+			(execute-sequence procs env))))
+
+#|
+
+列が式をひとつだけ含んでいるケース
+Alyssaの場合
+(lambda (env) (p env))
+本文中の場合 p自身を返して無駄なlambdaを生成していない
+(p env)
+
+列が式を複数含んでいるケース
+- 3つ
+Alyssaの場合
+(lambda (env)
+	((car procs1) env)
+	 (car procs2) env)
+	 (execute-sequence (cdr procs2) env))
+本文中の場合 lambdaがネストされていく、同時に2つ実行する
+(lambda (env)
+	(lambda (env)
+		(proc1 env) (proc2 env))
+	(proc3 env)))
+
+よって1つの場合、複数の場合から計算速度が速いとわかる。
+
+|#
 
 (define (analyze-application exp)
 	(let ((fproc (analyze (operator exp)))
@@ -309,6 +351,7 @@
 	(list 'cdr cdr)
 	(list 'cons cons)
 	(list 'null? null?)
+	(list 'display display)
 
 	; ⟨more primitives⟩
 	))
