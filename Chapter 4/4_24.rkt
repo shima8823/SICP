@@ -1,11 +1,34 @@
 #lang sicp
 
+(#%require (only racket/base time)) ; import time
 (#%require (only racket/base module+)) ; import module+
 (#%require (only racket/base provide)) ; import provide
 (#%require (only racket/base all-defined-out)) ; import symbol represent All Procedure
 (provide (all-defined-out))	; Export
 
 (define (eval exp env) ((analyze exp) env))
+
+; (define (eval exp env)
+; 	(cond
+; 		((self-evaluating? exp) exp)
+; 		((variable? exp) (lookup-variable-value exp env))
+; 		((quoted? exp) (text-of-quotation exp))
+; 		((assignment? exp) (eval-assignment exp env))
+; 		((definition? exp) (eval-definition exp env))
+; 		((if? exp) (eval-if exp env))
+; 		((lambda? exp)
+; 			(make-procedure
+; 				(lambda-parameters exp)
+; 				(lambda-body exp)
+; 				env))
+; 		((begin? exp) (eval-sequence (begin-actions exp) env))
+; 		((cond? exp) (eval (cond->if exp) env))
+; 		((application? exp)
+; 			(self-apply
+; 				(eval (operator exp) env)
+; 				(list-of-values (operands exp) env)))
+; 		(else
+; 			(error " Unknown expression type : EVAL " exp))))
 
 (define (analyze exp)
 	(cond
@@ -56,34 +79,19 @@
 		  (bproc (analyze-sequence (lambda-body exp))))
 		(lambda (env) (make-procedure vars bproc env))))
 
-; (define (analyze-sequence exps)
-; 	(define (sequentially proc1 proc2)
-; 		(lambda (env) (proc1 env) (proc2 env)))
-; 	(define (loop first-proc rest-procs)
-; 		(if (null? rest-procs)
-; 			first-proc
-; 			(loop
-; 				(sequentially first-proc (car rest-procs))
-; 				(cdr rest-procs))))
-; 	(let ((procs (map analyze exps)))
-; 		(if (null? procs)
-; 			(error " Empty sequence : ANALYZE "))
-; 			(loop (car procs) (cdr procs))))
-
-; Alyssa
 (define (analyze-sequence exps)
-	(define (execute-sequence procs env)
-		(cond
-			((null? (cdr procs))
-				((car procs) env))
-			(else
-				((car procs) env)
-				(execute-sequence (cdr procs) env))))
+	(define (sequentially proc1 proc2)
+		(lambda (env) (proc1 env) (proc2 env)))
+	(define (loop first-proc rest-procs)
+		(if (null? rest-procs)
+			first-proc
+			(loop
+				(sequentially first-proc (car rest-procs))
+				(cdr rest-procs))))
 	(let ((procs (map analyze exps)))
 		(if (null? procs)
 			(error " Empty sequence : ANALYZE "))
-		(lambda (env)
-			(execute-sequence procs env))))
+			(loop (car procs) (cdr procs))))
 
 (define (analyze-application exp)
 	(let ((fproc (analyze (operator exp)))
@@ -325,6 +333,11 @@
 	(list 'cons cons)
 	(list 'null? null?)
 	(list 'display display)
+	(list '+ +)
+	(list '- -)
+	(list '= =)
+	(list '> >)
+	(list '<= <=)
 
 	; ⟨more primitives⟩
 	))
@@ -361,7 +374,7 @@
 (define (driver-loop)
 	(prompt-for-input input-prompt)
 	(let ((input (read)))
-		(let ((output (eval input the-global-environment)))
+		(let ((output (time (eval input the-global-environment))))
 			(announce-output output-prompt)
 			(user-print output)))
 	(driver-loop))
@@ -383,3 +396,39 @@
 (module+ main
 	(driver-loop)
 )
+
+#|
+
+ref http://community.schemewiki.org/?sicp-ex-4.24
+	https://wat-aro.hatenablog.com/entry/2016/01/01/004545
+
+- test1
+
+(define (loop n)
+	(if (> n 0)
+		(loop (- n 1))))
+
+(loop 1000000)
+
+without analyze
+cpu time: 374 real time: 390 gc time: 21
+
+analyze
+cpu time: 300 real time: 318 gc time: 20
+
+
+- test2
+
+(define (fib n) 
+	(if (<= n 2) 
+		1 
+		(+ (fib (- n 1)) (fib (- n 2))))) 
+
+(fib 30)
+
+without analyze
+cpu time: 807 real time: 842 gc time: 3
+analyze
+cpu time: 678 real time: 705 gc time: 47
+
+|#
