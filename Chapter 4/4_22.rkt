@@ -18,6 +18,7 @@
 		((lambda? exp) (analyze-lambda exp))
 		((begin? exp) (analyze-sequence (begin-actions exp)))
 		((cond? exp) (analyze (cond->if exp)))
+		((let? exp) (analyze (let->combination exp)))
 		((application? exp) (analyze-application exp))
 		(else (error " Unknown expression type : ANALYZE " exp))))
 
@@ -363,6 +364,20 @@
 			(procedure-body object)
 			'<procedure-env>))
 	(display object)))
+
+(define (let? exp) (tagged-list? exp 'let))
+(define (let-define-pairs exp) (cadr exp))
+(define (let-body exp) (cddr exp))
+
+(define (let->combination exp)
+	(cons ; mapでリストがreturnされる ((exp) (exp) (exp))。よってconsで前にlambdaを追加する
+		(make-lambda
+			(map car (let-define-pairs exp))
+			(let-body exp))
+		(map cadr (let-define-pairs exp))))
+
+; (let->combination '(let ((x 10) (y 11)) (* x y)))
+; (let->combination '(let ((x 10) (y 11)) (define (mul x y) (* x y)) (mul x y)))
 
 (module+ main
 	(driver-loop)
