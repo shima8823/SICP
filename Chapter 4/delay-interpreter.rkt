@@ -31,10 +31,33 @@
 (define (actual-value exp env)
 	(force-it (eval exp env)))
 
+; メモ化
+(define (evaluated-thunk? obj)
+	(tagged-list? obj 'evaluated-thunk))
+(define (thunk-value evaluated-thunk)
+	(cadr evaluated-thunk))
+
 (define (force-it obj)
-	(if (thunk? obj)
-		(actual-value (thunk-exp obj) (thunk-env obj))
-		obj))
+	(cond
+		((thunk? obj)
+			(let ((result (actual-value (thunk-exp obj)
+										(thunk-env obj))))
+				(set-car! obj 'evaluated-thunk)
+				(set-car! (cdr obj)
+						result) ; exp をその値で置き換える
+				(set-cdr! (cdr obj)
+						'()) ; 必要のなくなった env を忘れる
+				result))
+		((evaluated-thunk? obj)
+			(thunk-value obj))
+		(else obj)))
+
+; 
+
+; (define (force-it obj)
+; 	(if (thunk? obj)
+; 		(actual-value (thunk-exp obj) (thunk-env obj))
+; 		obj))
 
 (define (delay-it exp env)
 	(list 'thunk exp env))
