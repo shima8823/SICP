@@ -1,3 +1,4 @@
+; 良問
 ; answer line 121
 
 #lang sicp
