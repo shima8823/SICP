@@ -1,3 +1,5 @@
+; answer line 121
+
 #lang sicp
 
 (#%require (only racket/base module+)) ; import module+
@@ -114,8 +116,57 @@
 		((last-exp? exps)
 			(eval (first-exp exps) env))
 		(else
-			(eval (first-exp exps) env)
+			(actual-value (first-exp exps) env) ; Cy
+			; (eval (first-exp exps) env) ; Ben
 			(eval-sequence (rest-exps exps) env))))
+
+#|
+Ben=元のeval-sequenceとする。
+
+a.
+結局eval手続きのなかでactual-valueを実行しているから。
+
+((application? exp)
+	(self-apply
+		(actual-value (operator exp) env)
+		(operands exp)
+		env))
+
+b.
+(define (p1 x)
+	(set! x (cons x '(2)))
+	x)
+(define (p2 x)
+	(define (p e) e x)
+	(p (set! x (cons x '(2)))))
+
+(p1 1)
+(p2 1)
+
+output
+Ben
+(1 2)
+1
+
+Cy
+(1 2)
+(1 2)
+
+(define p ... e x)
+でevalに渡したらframeがextendされてxはp2が指すxでは無くなってしまう。
+
+c.
+for-eachでは局所変数を変更しない(newline, display)を使用しているから。
+
+d.
+列は同時に起こるという考えだと思うので、Cyのような逐次的に扱うのではなく、evalで環境を拡張するのが良い。
+しかし、Cyの方が直感的である。
+
+実際の挙動
+元のset!の仕様(callerとcalleeに一つ手続きを挟むとcaller環境では更新されない)
+を考えるとLisp(racket)ではBenの方が実装されている。
+
+|#
 
 (define (eval-assignment exp env)
 	(set-variable-value!
@@ -303,6 +354,9 @@
 	(list 'cdr cdr)
 	(list 'cons cons)
 	(list 'null? null?)
+	(list 'list list)
+	(list 'newline newline)
+	(list 'display display)
 	(list '+ +)
 	(list '- -)
 	(list '* *)
