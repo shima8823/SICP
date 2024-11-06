@@ -1,7 +1,6 @@
-; 良問 正規順序
-
 #lang sicp
 
+(#%require (only racket/base time)) ; import time
 (#%require (only racket/base module+)) ; import module+
 (#%require (only racket/base provide)) ; import provide
 (#%require (only racket/base all-defined-out)) ; import symbol represent All Procedure
@@ -53,8 +52,6 @@
 		((evaluated-thunk? obj)
 			(thunk-value obj))
 		(else obj)))
-
-; 
 
 ; (define (force-it obj)
 ; 	(if (thunk? obj)
@@ -309,6 +306,7 @@
 	(list '- -)
 	(list '* *)
 	(list '= =)
+	(list '<= <=)
 
 	; ⟨more primitives⟩
 	))
@@ -345,7 +343,7 @@
 (define (driver-loop)
 	(prompt-for-input input-prompt)
 	(let ((input (read)))
-		(let ((output (actual-value input the-global-environment)))
+		(let ((output (time (actual-value input the-global-environment))))
 			(announce-output output-prompt)
 			(user-print output)))
 	(driver-loop))
@@ -378,21 +376,35 @@
 ;;; L-Eval input:
 (square (id 10))
 ;;; L-Eval value:
-⟨response⟩
+100
 ;;; L-Eval input:
 count
 ;;; L-Eval value:
-⟨response⟩
+1
 
 without memorization
 (define (square x) (* x x))
 ;;; L-Eval input:
 (square (id 10))
 ;;; L-Eval value:
-⟨response⟩
+100
 ;;; L-Eval input:
 count
 ;;; L-Eval value:
-⟨response⟩
+2
+
+遅そうなプログラム
+(define (fib n) 
+	(if (<= n 2) 
+		1 
+		(+ (fib (- n 1)) (fib (- n 2))))) 
+(define (cube x) (* x x x))
+(cube (fib 32))
+
+memorize
+cpu time: 2398 real time: 2541 gc time: 47
+
+without memorize
+cpu time: 45433 real time: 47592 gc time: 207
 
 |#

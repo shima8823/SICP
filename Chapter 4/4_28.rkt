@@ -22,7 +22,15 @@
 		((cond? exp) (eval (cond->if exp) env))
 		((application? exp)
 			(self-apply
-					(actual-value (operator exp) env)
+					; (thunk args)
+					; 第一引数がthunkの状況
+					; (eval (thunk args))
+					; (define (f v) (v 10 20))
+					; (f (if (< (- 10 20) 0) < >))
+					; つまり、引数を演算子(手続き)として使う場合に強制が必要になる。
+
+					; (actual-value (operator exp) env)
+					(eval (operator exp) env)
 					(operands exp)
 					env))
 		(else
@@ -307,6 +315,8 @@
 	(list '- -)
 	(list '* *)
 	(list '= =)
+	(list '< <)
+	(list '> >)
 
 	; ⟨more primitives⟩
 	))
