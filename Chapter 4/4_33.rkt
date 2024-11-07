@@ -1,4 +1,19 @@
+; 良問 遅延化リストのストリーム
+
 #lang sicp
+
+#|
+
+(define (cons x y) (lambda (m) (m x y)))
+(define (car z) (z (lambda (p q) p)))
+(define (cdr z) (z (lambda (p q) q)))
+
+(car '(a b c))
+(car (cdr '(a b c)))
+(car (cdr (cdr '(a b c))))
+(cdr (cdr (cdr '(a b c))))
+(cons 'a (cons 'b (cons 'c '())))
+|#
 
 (#%require (only racket/base module+)) ; import module+
 (#%require (only racket/base provide)) ; import provide
@@ -6,10 +21,11 @@
 (provide (all-defined-out))	; Export
 
 (define (eval exp env)
+	(display "eval ")(display exp)(newline)
 	(cond
 		((self-evaluating? exp) exp)
 		((variable? exp) (lookup-variable-value exp env))
-		((quoted? exp) (text-of-quotation exp))
+		((quoted? exp) (text-of-quotation exp env))
 		((assignment? exp) (eval-assignment exp env))
 		((definition? exp) (eval-definition exp env))
 		((if? exp) (eval-if exp env))
@@ -110,6 +126,8 @@
 		(eval (if-alternative exp) env)))
 
 (define (eval-sequence exps env)
+	(display "eval-sequence ")(display (first-exp exps))(newline)
+	; (display "env ")(display env)(newline)
 	(cond
 		((last-exp? exps)
 			(eval (first-exp exps) env))
@@ -139,8 +157,45 @@
 
 (define (variable? exp) (symbol? exp))
 
+(define car-in-underlying-scheme car)
+(define cdr-in-underlying-scheme cdr)
+
 (define (quoted? exp) (tagged-list? exp 'quote))
-(define (text-of-quotation exp) (cadr exp))
+(define (text-of-quotation exp env)
+	(display "quote!")(newline)
+	; (display "lazy-cons ")(display (make-lazy-cons (cadr exp)))(newline)
+	(define (make-list expr) ;http://community.schemewiki.org/?sicp-ex-4.33
+		(if (null? expr) 
+				(list 'quote '()) 
+				(list 'cons 
+						(list 'quote (car expr)) 
+						(make-list (cdr expr))))) 
+	(define (make-lazy-cons exp)
+		(define (cons-lazy x y)
+			(list
+				'lambda
+				(list 'm)
+				(list 'm (list 'quote (car-in-underlying-scheme x)) y)))
+			; (lambda (m) (m x y)))
+		
+		; (display "make-lazy-cons ")(display exp)(newline)
+		; (display "car ")(display (car-in-underlying-scheme exp))(newline)
+
+		(if (null? exp)
+			'()
+			(cons-lazy exp
+					   (make-lazy-cons (cdr-in-underlying-scheme exp))))
+	)
+	; (if (pair? (cadr exp)) (eval (make-list (cadr exp)) env) (cadr exp)))
+	; (display "lazy ")(display (make-lazy-cons (cadr exp)))(newline)
+	; (display "pair ")(display (pair? (cadr exp)))(newlie)
+	(if (pair? (cadr exp)) (eval (make-lazy-cons (cadr exp)) env) (cadr exp)))
+;上行のようにmake-lazy-consを強制してしまうと元の基本手続きであるcons, carの時に
+; procedureが返り値になってしまう。
+; よって165行目のように'consを使ってストリーム、基本手続きを使えるようにするべきだった。
+
+
+
 
 (define (tagged-list? exp tag)
 	(if (pair? exp)
@@ -303,6 +358,8 @@
 	(list 'cdr cdr)
 	(list 'cons cons)
 	(list 'null? null?)
+	(list 'display display)
+	(list 'list list)
 	(list '+ +)
 	(list '- -)
 	(list '* *)
