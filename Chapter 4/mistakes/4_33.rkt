@@ -186,10 +186,10 @@
 			(cons-lazy exp
 					   (make-lazy-cons (cdr-in-underlying-scheme exp))))
 	)
-	; (if (pair? (cadr exp)) (eval (make-list (cadr exp)) env) (cadr exp)))
+	(if (pair? (cadr exp)) (eval (make-list (cadr exp)) env) (cadr exp)))
 	; (display "lazy ")(display (make-lazy-cons (cadr exp)))(newline)
 	; (display "pair ")(display (pair? (cadr exp)))(newlie)
-	(if (pair? (cadr exp)) (eval (make-lazy-cons (cadr exp)) env) (cadr exp)))
+	; (if (pair? (cadr exp)) (eval (make-lazy-cons (cadr exp)) env) (cadr exp)))
 ;上行のようにmake-lazy-consを強制してしまうと元の基本手続きであるcons, carの時に
 ; procedureが返り値になってしまう。
 ; よって165行目のように'consを使ってストリーム、基本手続きを使えるようにするべきだった。
