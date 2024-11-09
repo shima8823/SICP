@@ -1,3 +1,5 @@
+; 良問 論理プログラム ヨット
+
 #lang sicp
 
 (define (require p) (if (not p) (amb)))
