@@ -16,9 +16,10 @@
 
 
 (define (an-integer-between low high)
-	(let ((a (an-integer-starting-from low)))
-		(require (lambda (x) (<= x high)) a)
-		a))
+	(require (<= low high))
+	(amb low (an-integer-between (+ low 1) high)))
+
+(an-integer-between 5 10)
 
 (define (a-pythagorean-triple-between low high)
 	(let ((i (an-integer-between low high)))
