@@ -16,6 +16,7 @@
 		(require (eq? D 'B)) ; D Bの娘
 		(let ((P (amb 'M 'D 'H 'B)))
 			(require (not (eq? P D)))
+			; Comment out below if Mary Ann isn't known Moore
 			(require (eq? P 'M)) ; P Mの娘
 			(let ((M (amb 'D 'H 'B 'P)))
 				(require (not (eq? M D)))
@@ -59,5 +60,21 @@ Gの⽗親は、Parker 博⼠の娘の名前をつけたクルーザーを持っ
 M D H B P	M D H B P	M D H B P
   B P   M	D B P H M	H B P D M
 L M R G A	L M R G A	L M R G A
+
+Mary Annの性がmooreと知らない場合 2解
+
+M D H B P
+  B      
+L M R G A
+
+1
+M D H B P
+D B P H M
+L M R G A
+
+2
+M D H B P
+P B D M H
+L M R G A
 
 |#
