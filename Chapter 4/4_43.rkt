@@ -12,22 +12,31 @@
 		  (else (distinct? (cdr items)))))
 
 (define (father-cruiser)
-	(let ((M (amb 'D 'H 'B 'P))
-		  (D (amb 'M 'H 'B 'P))
-		  (H (amb 'M 'D 'B 'P))
-		  (B (amb 'M 'D 'H 'P))
-		  (P (amb 'M 'D 'H 'B)))
-		(require (distinct? (list M D H B P)))
+	(let ((D (amb 'M 'H 'B 'P)))
 		(require (eq? D 'B)) ; D Bの娘
-		(require (eq? P 'M)) ; P Mの娘
-		(require
-			(eq?
-				(cond ((eq? B 'H) H)
-			 		  ((eq? B 'M) M))
-				'P))
-		(list (list 'M M) (list 'D D)
-			(list 'H H) (list 'B B)
-			(list 'P P))))
+		(let ((P (amb 'M 'D 'H 'B)))
+			(require (not (eq? P D)))
+			(require (eq? P 'M)) ; P Mの娘
+			(let ((M (amb 'D 'H 'B 'P)))
+				(require (not (eq? M D)))
+				(require (not (eq? M P)))
+				(let ((H (amb 'M 'D 'B 'P)))
+					(require (not (eq? H D)))
+					(require (not (eq? H P)))
+					(require (not (eq? H M)))
+					(let ((B (amb 'M 'D 'H 'P)))
+						(require (not (eq? B D)))
+						(require (not (eq? B P)))
+						(require (not (eq? B M)))
+						(require (not (eq? B H)))
+						(require
+							(eq?
+								(cond ((eq? B 'H) H) ((eq? B 'M) M))
+								'P))
+						(list (list 'M M) (list 'D D)
+							(list 'H H) (list 'B B)
+							(list 'P P))))
+						))))
 
 (father-cruiser)
 
