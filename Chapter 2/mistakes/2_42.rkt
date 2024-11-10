@@ -56,16 +56,15 @@
 			(
 				(len (length l))
 			)
-			(cond
-				((<= i 0) #f)
-				(else
-					(or 
-						(= (abs (- (list-ref l 0) (list-ref l (- len i)))) (- len i)); cross
-						(= (abs (- (list-ref l 0) (list-ref l (- len i)))) 0); col
-						(safe-col-cross l (- i 1))
-					)
-				)
-			)
+			(and (> i 0) 
+					(or (= (abs (- (list-ref l 0) (list-ref l (- len i)))) (- len i))
+						(= (abs (- (list-ref l 0) (list-ref l (- len i)))) 0)
+						(safe-col-cross l (- i 1))))
+			; refactoring
+			; (and (> i 0) 
+			; 		(or (= (abs (- (list-ref l 0) (list-ref l (- len i)))) (- len i))
+			; 			(= (abs (- (list-ref l 0) (list-ref l (- len i)))) 0)
+			; 			(safe-col-cross l (- i 1))))
 		)
 	)
 
