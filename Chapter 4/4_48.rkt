@@ -1,3 +1,5 @@
+; 重文
+
 #lang sicp
 
 (define (memq item x)
@@ -11,9 +13,20 @@
 (define verbs '(verb studies lectures eats sleeps))
 (define articles '(article the a))
 (define prepositions '(prep for to in by with))
+(define conjunctions '(conj and but so for or))
 
 (define (parse-sentence)
 	(list 'sentence (parse-noun-phrase) (parse-verb-phrase)))
+
+(define (parse-compound-sentence)
+	(define (maybe-extend sentence)
+		(amb sentence
+			(maybe-extend
+				(list 'compound-sentence
+					sentence
+					(parse-word conjunctions)
+					(parse-compound-sentence)))))
+	(maybe-extend (parse-sentence)))
 
 (define (parse-simple-noun-phrase)
 	(list 'simple-noun-phrase
@@ -53,8 +66,11 @@
 (define *unparsed* '())
 (define (parse input)
 	(set! *unparsed* input)
-	(let ((sent (parse-sentence)))
+	(let ((sent (parse-compound-sentence)))
 		(require (null? *unparsed*)) sent))
 
-(parse '(the cat eats))
-(parse '(the student with the cat sleeps in the class))
+(parse '(the cat eats)) ; 1
+(parse '(the student with the cat sleeps in the class)) ; 1
+(parse '(the professor lectures to the student with the cat)) ; 2
+(parse '(the professor lectures to the student in the class with the cat)) ; 5
+(parse '(the professor lectures to the student and the cat eats))
