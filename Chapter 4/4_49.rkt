@@ -44,14 +44,31 @@
 		(parse-noun-phrase)))
 
 (define (parse-word word-list)
+	(define (expansion-words words)
+		(require (not (null? words)))
+		(amb (car words)
+			(expansion-words (cdr words))))
+
 	(require (not (null? *unparsed*)))
-	(require (memq (car *unparsed*) (cdr word-list)))
-	(let ((found-word (car *unparsed*)))
-		(set! *unparsed* (cdr *unparsed*))
-		(list (car word-list) found-word)))
+	(set! *unparsed* (cdr *unparsed*))
+	(list (car word-list) (expansion-words (cdr word-list))))
 
 (define *unparsed* '())
 (define (parse input)
 	(set! *unparsed* input)
 	(let ((sent (parse-sentence)))
 		(require (null? *unparsed*)) sent))
+
+(parse '(the cat eats))
+
+#|
+
+(sentence (simple-noun-phrase (article the) (noun student)) (verb studies))
+(sentence (simple-noun-phrase (article the) (noun student)) (verb lectures))
+(sentence (simple-noun-phrase (article the) (noun student)) (verb eats))
+
+...
+(sentence (simple-noun-phrase (article a) (noun class)) (verb eats))
+(sentence (simple-noun-phrase (article a) (noun class)) (verb sleeps))
+
+|#
