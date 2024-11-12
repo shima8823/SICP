@@ -101,23 +101,47 @@
 (define (analyze-application exp)
 	(let ((fproc (analyze (operator exp)))
 		  (aprocs (map analyze (operands exp))))
-		(lambda (env)
-			(execute-application
-				(fproc env)
-				(map
-					(lambda (aproc) (aproc env))
-					aprocs)))))
+		(lambda (env succeed fail)
+			(fproc env
+				(lambda (proc fail2)
+					(get-args aprocs
+						env
+						(lambda (args fail3)
+							(execute-application proc args succeed fail3))
+						fail2))
+				fail))))
 
-(define (execute-application proc args)
+(define (get-args aprocs env succeed fail)
+	(if (null? aprocs)
+		(succeed '() fail)
+		((car aprocs)
+			env
+			;; この aproc の成功継続
+			(lambda (arg fail2)
+				(get-args
+					(cdr aprocs)
+					env
+					;; get-args の再帰的呼び出しのための
+					;; 成功継続
+					(lambda (args fail3)
+						(succeed (cons arg args) fail3))
+					fail2))
+			fail)))
+
+(define (execute-application proc args succeed fail)
 	(cond
 		((primitive-procedure? proc)
-			(apply-primitive-procedure proc args))
+			(succeed
+				(apply-primitive-procedure proc args)
+				fail))
 		((compound-procedure? proc)
 			((procedure-body proc)
 				(extend-environment
 					(procedure-parameters proc)
 					args
-					(procedure-environment proc))))
+					(procedure-environment proc))
+					succeed
+					fail))
 		(else
 			(error " Unknown procedure type : EXECUTE-APPLICATION " proc))))
 
