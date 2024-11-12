@@ -15,6 +15,7 @@
 		((lambda? exp) (analyze-lambda exp))
 		((begin? exp) (analyze-sequence (begin-actions exp)))
 		((cond? exp) (analyze (cond->if exp)))
+		((let? exp) (analyze (let->combination exp)))
 		((application? exp) (analyze-application exp))
 		((amb? exp) (analyze-amb exp))
 		(else (error " Unknown expression type : ANALYZE " exp))))
@@ -233,6 +234,18 @@
 					(cond-predicate first)
 					(sequence->exp (cond-actions first))
 					(expand-clauses rest))))))
+
+(define (let? exp) (tagged-list? exp 'let))
+(define (let-define-pairs exp) (cadr exp))
+(define (let-body exp) (cddr exp))
+
+(define (let->combination exp)
+	(cons
+		(make-lambda
+			(map car (let-define-pairs exp))
+			(let-body exp))
+		(map cadr (let-define-pairs exp))))
+
 
 (define (true? x) (not (eq? x false)))
 (define (false? x) (eq? x false))
