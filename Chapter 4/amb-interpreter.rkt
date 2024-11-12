@@ -1,6 +1,8 @@
 #lang sicp
 
 (define (eval exp env) ((analyze exp) env))
+(define (ambeval exp env succeed fail)
+	((analyze exp) env succeed fail))
 
 (define (analyze exp)
 	(cond
@@ -14,14 +16,19 @@
 		((begin? exp) (analyze-sequence (begin-actions exp)))
 		((cond? exp) (analyze (cond->if exp)))
 		((application? exp) (analyze-application exp))
+		((amb? exp) (analyze-amb exp))
 		(else (error " Unknown expression type : ANALYZE " exp))))
 
-(define (analyze-self-evaluating exp) (lambda (env) exp))
+(define (analyze-self-evaluating exp)
+	(lambda (env succeed fail)
+		(succeed exp fail)))
 (define (analyze-quoted exp)
 	(let ((qval (text-of-quotation exp)))
-		(lambda (env) qval)))
+		(lambda (env succeed fail)
+			(succeed qval fail))))
 (define (analyze-variable exp)
-	(lambda (env) (lookup-variable-value exp env)))
+	(lambda (env succeed fail)
+		(succeed (lookup-variable-value exp env) fail)))
 
 (define (analyze-assignment exp)
 	(let ((var (assignment-variable exp))
@@ -49,7 +56,8 @@
 (define (analyze-lambda exp)
 	(let ((vars (lambda-parameters exp))
 		  (bproc (analyze-sequence (lambda-body exp))))
-		(lambda (env) (make-procedure vars bproc env))))
+			(lambda (env succeed fail)
+				(succeed (make-procedure vars bproc env) fail))))
 
 (define (analyze-sequence exps)
 	(define (sequentially proc1 proc2)
@@ -398,5 +406,8 @@
 			(procedure-body object)
 			'<procedure-env>))
 	(display object)))
+
+(define (amb? exp) (tagged-list? exp 'amb))
+(define (amb-choices exp) (cdr exp))
 
 (driver-loop)
