@@ -16,8 +16,8 @@
 		((begin? exp) (analyze-sequence (begin-actions exp)))
 		((cond? exp) (analyze (cond->if exp)))
 		((let? exp) (analyze (let->combination exp)))
-		((application? exp) (analyze-application exp))
 		((amb? exp) (analyze-amb exp))
+		((application? exp) (analyze-application exp))
 		(else (error " Unknown expression type : ANALYZE " exp))))
 
 (define (analyze-self-evaluating exp)
@@ -444,15 +444,34 @@
 	(apply-in-underlying-scheme
 		(primitive-implementation proc) args))
 
-(define input-prompt "~~~ M-Eval input :")
-(define output-prompt "~~~ M-Eval value :")
+(define input-prompt "~~~ Amb-Eval input :")
+(define output-prompt "~~~ Amb-Eval value :")
 (define (driver-loop)
-	(prompt-for-input input-prompt)
-	(let ((input (read)))
-		(let ((output (eval input the-global-environment)))
-			(announce-output output-prompt)
-			(user-print output)))
-	(driver-loop))
+	(define (internal-loop try-again)
+		(prompt-for-input input-prompt)
+		(let ((input (read)))
+			(if (eq? input 'try-again)
+				(try-again)
+				(begin
+					(newline) (display ";;; Starting a new problem ")
+					(ambeval
+						input
+						the-global-environment
+						;; ambeval success
+						(lambda (val next-alternative)
+							(announce-output output-prompt)
+							(user-print val)
+							(internal-loop next-alternative))
+						;; ambeval failure
+						(lambda ()
+							(announce-output
+							";;; There are no more values of")
+							(user-print input)
+							(driver-loop)))))))
+	(internal-loop
+		(lambda ()
+			(newline) (display ";;; There is no current problem ")
+			(driver-loop))))
 
 (define (prompt-for-input string)
 	(newline) (newline) (display string) (newline))
