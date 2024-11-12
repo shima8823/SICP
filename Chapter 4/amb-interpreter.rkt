@@ -49,10 +49,17 @@
 	(let ((pproc (analyze (if-predicate exp)))
 		  (cproc (analyze (if-consequent exp)))
 		  (aproc (analyze (if-alternative exp))))
-		(lambda (env)
-			(if (true? (pproc env))
-				(cproc env)
-				(aproc env)))))
+		(lambda (env succeed fail)
+			(pproc
+				env
+				;; pred-value を得るための
+				;; 述語の評価に対する成功継続
+				(lambda (pred-value fail2)
+					(if (true? pred-value)
+						(cproc env succeed fail2)
+						(aproc env succeed fail2)))
+				;; 述語の評価に対する失敗継続
+				fail))))
 
 (define (analyze-lambda exp)
 	(let ((vars (lambda-parameters exp))
@@ -61,8 +68,14 @@
 				(succeed (make-procedure vars bproc env) fail))))
 
 (define (analyze-sequence exps)
-	(define (sequentially proc1 proc2)
-		(lambda (env) (proc1 env) (proc2 env)))
+	(define (sequentially a b)
+		(lambda (env succeed fail)
+			(a  env
+				;; a の呼び出しの成功継続
+				(lambda (a-value fail2)
+					(b env succeed fail2))
+				;; a の呼び出しの失敗継続
+				fail)))
 	(define (loop first-proc rest-procs)
 		(if (null? rest-procs)
 			first-proc
