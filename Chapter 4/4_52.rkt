@@ -12,6 +12,7 @@
 		((assignment? exp) (analyze-assignment exp))
 		((definition? exp) (analyze-definition exp))
 		((if? exp) (analyze-if exp))
+		((if-fail? exp) (analyze-if-fail exp))
 		((lambda? exp) (analyze-lambda exp))
 		((begin? exp) (analyze-sequence (begin-actions exp)))
 		((cond? exp) (analyze (cond->if exp)))
@@ -502,18 +503,55 @@
 						(lambda () (try-next (cdr choices))))))
 			(try-next cprocs))))
 
+(define (if-fail? exp) (tagged-list? exp 'if-fail))
+(define (if-fail-try exp) (cadr exp))
+(define (if-fail-fail exp) (caddr exp))
+
+(define (analyze-if-fail exp)
+	(let ((try (analyze (if-fail-try exp)))
+		  (second-val (analyze (if-fail-fail exp))))
+		(lambda (env succeed fail)
+			; (succeed (try) (lambda () (fail)(second-val)))
+			(try
+				env
+
+				(lambda (val fail2)
+					(succeed val fail2))
+				; 単純なsucceedと一緒
+				; succeed
+
+				(lambda () ; try fail
+					(second-val env
+					
+						(lambda (val fail2)
+							(succeed val fail2))
+						; 単純なsucceedと一緒
+						; succeed
+
+						fail)))
+		)
+	)
+)
+
 (driver-loop)
 
 #|
 
 Debug example
 
-(amb 1 2 3)
-
 (define (require p) (if (not p) (amb)))
-(let ((x (amb 1 2 3)))
-	(require (not (even? x)))
-	(newline)(display "odd ")
-	x)
+(define (an-element-of items)
+	(require (not (null? items)))
+	(amb (car items) (an-element-of (cdr items))))
+(if-fail
+	(let ((x (an-element-of '(1 3 5))))
+		(require (even? x))
+		x)
+	'all-odd)
+(if-fail
+	(let ((x (an-element-of '(1 3 5 8))))
+		(require (even? x))
+		x)
+	'all-odd)
 
 |#
