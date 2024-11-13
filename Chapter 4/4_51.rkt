@@ -10,6 +10,7 @@
 		((quoted? exp) (analyze-quoted exp))
 		((variable? exp) (analyze-variable exp))
 		((assignment? exp) (analyze-assignment exp))
+		((permanent-assignment? exp) (analyze-permanent-assignment exp))
 		((definition? exp) (analyze-definition exp))
 		((if? exp) (analyze-if exp))
 		((lambda? exp) (analyze-lambda exp))
@@ -502,4 +503,37 @@
 						(lambda () (try-next (cdr choices))))))
 			(try-next cprocs))))
 
+(define (permanent-assignment? exp) (tagged-list? exp 'permanent-set!))
+(define (analyze-permanent-assignment exp)
+	(let ((var (assignment-variable exp))
+		  (vproc (analyze (assignment-value exp))))
+		(lambda (env succeed fail)
+			(vproc env
+				(lambda (val fail2)
+					(set-variable-value! var val env)
+					(succeed 'ok fail2))
+				fail)))
+	)
+
 (driver-loop)
+
+
+#|
+
+permanent-set!の代わりにset!を使うとcountが元の値に戻される。
+
+DEBUG
+
+(define (require p) (if (not p) (amb)))
+(define (an-element-of items)
+	(require (not (null? items)))
+	(amb (car items) (an-element-of (cdr items))))
+(define count 0)
+
+(let ((x (an-element-of '(a b c)))
+	  (y (an-element-of '(a b c))))
+	(permanent-set! count (+ count 1))
+	(require (not (eq? x y)))
+	(list x y count))
+
+|#
