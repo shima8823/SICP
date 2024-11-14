@@ -17,6 +17,7 @@
 		((cond? exp) (analyze (cond->if exp)))
 		((let? exp) (analyze (let->combination exp)))
 		((amb? exp) (analyze-amb exp))
+		((require? exp) (analyze-require exp))
 		((application? exp) (analyze-application exp))
 		(else (error " Unknown expression type : ANALYZE " exp))))
 
@@ -501,6 +502,20 @@
 						succeed
 						(lambda () (try-next (cdr choices))))))
 			(try-next cprocs))))
+
+(define (require? exp) (tagged-list? exp 'require))
+(define (require-predicate exp) (cadr exp))
+
+(define (analyze-require exp)
+	(let ((pproc (analyze (require-predicate exp))))
+		(lambda (env succeed fail)
+			(pproc env
+				(lambda (pred-value fail2)
+					(if (not pred-value)
+						((analyze '(amb)) env succeed fail2)
+						; (fail2) "(amb)"はfailなので単純でいい。
+						(succeed 'ok fail2)))
+				fail))))
 
 (driver-loop)
 
