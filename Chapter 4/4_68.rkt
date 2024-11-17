@@ -24,18 +24,19 @@
 (assert! (rule (append-to-form (?u . ?v) ?y (?u . ?z))
 	  		   (append-to-form ?v ?y ?z)))
 
-(assert! (rule (reverse (?last . ()) (?last . ()))))
+(assert! (rule (reverse () ())))
 ; (assert! (rule (reverse () ())))
 (assert!
-(rule (reverse (?order . ?o-rest) (?reverse . ?r-rest))
+(rule (reverse (?order . ?o-rest) ?reverse)
 	(and
-		(reverse ?o-rest ?reverse)
-	  	(append-to-form (?order) () (?r-rest))
+		(reverse ?o-rest ?x)
+		(append-to-form ?x (?order) ?reverse)
 	)
 )
 )
 
-(reverse (1 2) ?x)
+(reverse (1 2 3) ?x)
+(reverse ?x (1 2 3))
 #|
 (reverse (1 . (2 3)) ?x)
 	(reverse (2 . (3)) ?x)
