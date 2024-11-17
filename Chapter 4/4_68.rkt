@@ -1,6 +1,4 @@
-(assert! (rule (append-to-form () ?y ?y)))
-(assert! (rule (append-to-form (?u . ?v) ?y (?u . ?z))
-	  		   (append-to-form ?v ?y ?z)))
+; 良問
 
 #|
 ;;; Query input:
@@ -18,25 +16,19 @@
 		(list)
 		(append (reverse (cdr l)) (list (car l)))))
 
-
-
 (assert! (rule (append-to-form () ?y ?y)))
 (assert! (rule (append-to-form (?u . ?v) ?y (?u . ?z))
 	  		   (append-to-form ?v ?y ?z)))
 
 (assert! (rule (reverse () ())))
-; (assert! (rule (reverse () ())))
-(assert!
-(rule (reverse (?order . ?o-rest) ?reverse)
+(assert! (rule (reverse (?order . ?o-rest) ?reverse)
 	(and
 		(reverse ?o-rest ?x)
-		(append-to-form ?x (?order) ?reverse)
-	)
-)
-)
+		(append-to-form ?x (?order) ?reverse))))
 
 (reverse (1 2 3) ?x)
-(reverse ?x (1 2 3))
+(reverse ?x (1 2 3)) ;infinity loop
+
 #|
 (reverse (1 . (2 3)) ?x)
 	(reverse (2 . (3)) ?x)
@@ -56,15 +48,5 @@ DEBUG
 
 (reverse (1 2 3) ?x)
 (reverse ?x (1 2 3))
-
-(assert!
-(rule (reverse (?order . ?o-rest) (?reverse . ?r-rest))
-	(and
-		(reverse ?o-rest ?reverse)
-	  	(append-to-form (?order) () (?r-rest))
-	)
-)
-)
-
 
 |#
