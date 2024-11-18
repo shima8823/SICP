@@ -1,3 +1,4 @@
+; 良問 It's Funny!
 (assert! (son Adam Cain))
 (assert! (son Cain Enoch))
 (assert! (son Enoch Irad))
@@ -20,12 +21,20 @@
 
 ((grandson) ?p ?c)
 
+(assert!
+	(rule (last-pair (?val . ?rest) (?x))
+		  (last-pair ?rest (?x))))
+(assert!
+	(rule (last-pair (?x) (?x))))
 
-#|
+(assert!
+	(rule ((great . ?rel) ?x ?y)
+		(and (son ?x ?p)
+			 (?rel ?p ?y)
+			 (last-pair ?rel (grandson)))))
 
-DEBUG
+((great grandson) Adam ?c)
+((great great great great great grandson) ?g ?s)
 
 ((great grandson) ?g ?ggs)
 (?relationship Adam Irad)
-
-|#
