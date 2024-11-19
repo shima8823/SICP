@@ -1,5 +1,7 @@
 #lang sicp
 
+(#%require "./query-util.rkt")
+
 (define input-prompt "~~~ Query input :")
 (define output-prompt "~~~ Query results :")
 
@@ -357,3 +359,5 @@
 (define (binding-in-frame variable frame) (assoc variable frame))
 (define (extend variable value frame)
 	(cons (make-binding variable value) frame))
+
+(query-driver-loop)
