@@ -361,3 +361,76 @@
 	(cons (make-binding variable value) frame))
 
 (query-driver-loop)
+
+#|
+
+simple query
+だいたい以下の節を網羅してる
+4.4.4.1, 2(単純クエリのみ), 3, 5(assertionのみ), 6
+
+(job ?x (computer programmer))
+
+(assert! (job (Fect Cy D) (computer programmer)))
+(job ?x (computer programmer))
+~~~
+instantiate
+	copy
+
+
+qeval
+
+	simple-query 
+		(stream-flatmap
+			(lambda (frame)
+				(stream-append-delayed
+					(find-assertions query-pattern frame)
+					(delay (apply-rules query-pattern frame))))
+			frame-stream)
+
+		stream-append-delayed -> 表明(assertions)と規則(rules)のストリームをappendする。
+			find-assertions
+				(stream-flatmap
+					(lambda (datum) (check-an-assertion datum pattern frame))
+					(fetch-assertions pattern frame))
+
+					stream-map
+
+						fetch-assertions -> assertionを探す : {{job {Fect Cy D} {computer programmer}}
+							(if (use-index? pattern)
+								(get-indexed-assertions pattern)
+								(get-all-assertions))
+
+						check-an-assertion -> frameのsingleton-streamを返す
+							(let ((match-result (pattern-match query-pat assertion query-frame)))
+								(if (eq? match-result 'failed)
+									the-empty-stream
+									(singleton-stream match-result)))
+
+							pattern-match -> frameを返す : {{{? x} Fect Cy D}}
+								(cond ((eq? frame 'failed) 'failed)
+									((equal? pat dat) frame)
+									((var? pat) (extend-if-consistent pat dat frame))
+									((and (pair? pat) (pair? dat))
+										(pattern-match
+											(cdr pat)
+											(cdr dat)
+											(pattern-match (car pat) (car dat) frame)))
+									(else 'failed))
+
+					flatten-stream -> frameを交互にしたものを返す
+						(if (stream-null? stream)
+							the-empty-stream
+							(interleave-delayed (stream-car stream) (delay (flatten-stream (stream-cdr stream)))))
+
+			(delay (apply-rules query-pattern frame))
+
+~~~
+
+2個以上のassert!がある場合はdisplay-streamでcdrされるだけで、そんなに変わらない。
+(assert! (job (Fect Cy D) (computer programmer)))
+(assert! (job (Hacker Alyssa P) (computer programmer)))
+(job ?x (computer programmer))
+
+(assert! (job ?x (computer programmer)))
+
+|#
