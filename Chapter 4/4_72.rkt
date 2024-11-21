@@ -63,14 +63,6 @@
 				 (qeval (first-conjunct conjuncts) frame-stream))))
 (put 'and 'qeval conjoin)
 
-(define (disjoin disjuncts frame-stream)
-	(if (empty-disjunction? disjuncts)
-		the-empty-stream
-		(interleave-delayed
-			(qeval (first-disjunct disjuncts) frame-stream)
-			(delay (disjoin (rest-disjuncts disjuncts) frame-stream)))))
-(put 'or 'qeval disjoin)
-
 (define (negate operands frame-stream)
 	(stream-flatmap
 		(lambda (frame)
@@ -281,10 +273,6 @@
 			(interleave-delayed (force delayed-s2) (delay (stream-cdr s1))))))
 
 (define (stream-flatmap proc s) (flatten-stream (stream-map proc s)))
-(define (flatten-stream stream)
-	(if (stream-null? stream)
-		the-empty-stream
-		(interleave-delayed (stream-car stream) (delay (flatten-stream (stream-cdr stream))))))
 
 (define (singleton-stream x) (cons-stream x the-empty-stream))
 
@@ -360,4 +348,46 @@
 (define (extend variable value frame)
 	(cons (make-binding variable value) frame))
 
+(define (disjoin disjuncts frame-stream)
+	(if (empty-disjunction? disjuncts)
+		the-empty-stream
+		(stream-append-delayed
+			(qeval (first-disjunct disjuncts) frame-stream)
+			(delay (disjoin (rest-disjuncts disjuncts) frame-stream)))))
+(put 'or 'qeval disjoin)
+
+(define (flatten-stream stream)
+	(if (stream-null? stream)
+		the-empty-stream
+		(stream-append-delayed (stream-car stream) (delay (flatten-stream (stream-cdr stream))))))
+
 (query-driver-loop)
+
+#|
+
+無限フレームの生成方法はあるだろうか？
+交互に出力するべき条件を探す
+
+(assert! (married a b))
+
+(assert!
+	(rule (married ?x ?y)
+		  (married ?y ?x)))
+
+(assert!
+	(rule (married ?x ?y)
+		  (married a ?y)))
+
+(married Minnie ?who)
+
+(married Minnie b)
+(married Minnie b)
+(married Minnie b)
+(married Minnie b)
+(married Minnie b)
+(married Minnie b)
+...
+
+相互配置でなければ無限ストリームがあった時に、片方しか出力されないから。
+
+|#
