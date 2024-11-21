@@ -48,28 +48,12 @@
 			(qproc (contents query) frame-stream)
 			(simple-query query frame-stream))))
 
-(define (simple-query query-pattern frame-stream)
-	(stream-flatmap
-		(lambda (frame)
-			(stream-append-delayed
-				(find-assertions query-pattern frame)
-				(delay (apply-rules query-pattern frame))))
-		frame-stream))
-
 (define (conjoin conjuncts frame-stream)
 	(if (empty-conjunction? conjuncts)
 		frame-stream
 		(conjoin (rest-conjuncts conjuncts)
 				 (qeval (first-conjunct conjuncts) frame-stream))))
 (put 'and 'qeval conjoin)
-
-(define (disjoin disjuncts frame-stream)
-	(if (empty-disjunction? disjuncts)
-		the-empty-stream
-		(interleave-delayed
-			(qeval (first-disjunct disjuncts) frame-stream)
-			(delay (disjoin (rest-disjuncts disjuncts) frame-stream)))))
-(put 'or 'qeval disjoin)
 
 (define (negate operands frame-stream)
 	(stream-flatmap
@@ -360,4 +344,42 @@
 (define (extend variable value frame)
 	(cons (make-binding variable value) frame))
 
+(define (simple-query query-pattern frame-stream)
+	(stream-flatmap
+		(lambda (frame)
+			(stream-append
+				(find-assertions query-pattern frame)
+				(apply-rules query-pattern frame)))
+		frame-stream))
+
+(define (disjoin disjuncts frame-stream)
+	(if (empty-disjunction? disjuncts)
+		the-empty-stream
+		(interleave
+			(qeval (first-disjunct disjuncts) frame-stream)
+			(disjoin (rest-disjuncts disjuncts) frame-stream))))
+(put 'or 'qeval disjoin)
+
+(define (interleave s1 s2)
+	(if (stream-null? s1)
+		s2
+		(cons-stream
+			(stream-car s1)
+			(interleave s2 (stream-cdr s1)))))
+
 (query-driver-loop)
+
+#|
+
+望ましくないふるまい http://community.schemewiki.org/?sicp-ex-4.71
+(assert! (married Minnie Mickey)) 
+(assert! (rule (married ?x ?y) 
+			   (married ?y ?x)))
+(married Mickey ?who) 
+
+もし無限ループに陥るクエリがあった時に、出力するか無限にresultを計算し続けるかの問題。
+上記の場合は無限に出力されるべきなのでdelayを適用するべきである。
+
+これはqueryというよりstreamの問題だな
+
+|#
