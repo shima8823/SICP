@@ -433,4 +433,33 @@ qeval
 
 (assert! (job ?x (computer programmer)))
 
+複雑なクエリ、規則をDEBUG
+4.4.4.2(複合クエリ), 4(depends-on以外), 5(rule), 7, 8
+(assert! (son Adam Cain))
+(assert! (son Cain Enoch))
+(assert! (son Enoch Irad))
+(assert! (son Irad Mehujael))
+(assert! (son Mehujael Methushael))
+(assert! (son Methushael Lamech))
+(assert! (wife Lamech Ada))
+(assert! (son Ada Jabal))
+(assert! (son Ada Jubal))
+(assert!
+	(rule ((grandson) ?g ?s)
+		(and (son ?g ?p)
+			 (son ?p ?s))))
+((grandson) Adam ?c)
+
+---
+instantiate
+	提供されたフレームから現在のvar?に値を適用する。
+qeval
+	apply-a-rule
+		rename-variables-in -> uniqueのIDをつける。ex. (? x) -> (? 1 x)
+			unify-match -> frameを返す ex. {{{? c} ? 1 s} {{? 1 g} . Adam}}
+				qeval
+---
+
+; always-trueはrule sameで出そう。
+
 |#
