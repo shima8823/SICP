@@ -1,6 +1,6 @@
 #lang sicp
 
-(#%require "./query-util.rkt")
+(#%require "../query-util.rkt")
 
 (define input-prompt "~~~ Query input :")
 (define output-prompt "~~~ Query results :")
