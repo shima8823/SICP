@@ -71,31 +71,6 @@
 			(delay (disjoin (rest-disjuncts disjuncts) frame-stream)))))
 (put 'or 'qeval disjoin)
 
-(define (negate operands frame-stream)
-	(stream-flatmap
-		(lambda (frame)
-			(if (stream-null?
-				(qeval (negated-query operands)
-						(singleton-stream frame)))
-				(singleton-stream frame)
-				the-empty-stream))
-		frame-stream))
-(put 'not 'qeval negate)
-
-(define (lisp-value call frame-stream)
-	(stream-flatmap
-		(lambda (frame)
-			(if (execute
-					(instantiate
-						call
-						frame
-						(lambda (v f)
-							(error "Unknown pat var: LISP-VALUE " v))))
-				(singleton-stream frame)
-				the-empty-stream))
-		frame-stream))
-(put 'lisp-value 'qeval lisp-value)
-
 (define (execute exp)
 	(apply (eval (predicate exp) user-initial-environment)
 		   (args exp)))
@@ -104,11 +79,6 @@
 (put 'always-true 'qeval always-true)
 
 ; 4.4.4.3
-
-(define (find-assertions pattern frame)
-	(stream-flatmap
-		(lambda (datum) (check-an-assertion datum pattern frame))
-		(fetch-assertions pattern frame)))
 
 (define (check-an-assertion assertion query-pat query-frame)
 	(let ((match-result (pattern-match query-pat assertion query-frame)))
@@ -359,5 +329,60 @@
 (define (binding-in-frame variable frame) (assoc variable frame))
 (define (extend variable value frame)
 	(cons (make-binding variable value) frame))
+
+(define (negate operands frame-stream)
+	(simple-stream-flatmap
+		(lambda (frame)
+			(if (stream-null?
+				(qeval (negated-query operands)
+						(singleton-stream frame)))
+				(singleton-stream frame)
+				the-empty-stream))
+		frame-stream))
+(put 'not 'qeval negate)
+
+(define (lisp-value call frame-stream)
+	(simple-stream-flatmap
+		(lambda (frame)
+			(if (execute
+					(instantiate
+						call
+						frame
+						(lambda (v f)
+							(error "Unknown pat var: LISP-VALUE " v))))
+				(singleton-stream frame)
+				the-empty-stream))
+		frame-stream))
+(put 'lisp-value 'qeval lisp-value)
+
+(define (find-assertions pattern frame)
+	(simple-stream-flatmap
+		(lambda (datum) (check-an-assertion datum pattern frame))
+		(fetch-assertions pattern frame)))
+
+(define (stream-filter pred stream)
+	(cond ((stream-null? stream) the-empty-stream)
+		  ((pred (stream-car stream)) ; if true、現在の値とstreamのconsを返す。
+			(cons-stream
+				(stream-car stream)
+				(stream-filter
+					pred
+					(stream-cdr stream))))
+		  (else (stream-filter pred (stream-cdr stream)))))
+
+; a
+(define (simple-stream-flatmap proc s)
+	(simple-flatten (stream-map proc s)))
+(define (simple-flatten stream)
+	(stream-map stream-car
+		(stream-filter (lambda (s) (not (stream-null? s))) stream)))
+
+#|
+
+b. このような変更を加えると、クエリシステムのふるまいは変わるだろうか。
+単一のストリーム&&空ストリームだけの変更なので変わらない。
+
+|#
+
 
 (query-driver-loop)
