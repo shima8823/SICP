@@ -360,4 +360,54 @@
 (define (extend variable value frame)
 	(cons (make-binding variable value) frame))
 
+(define (uniqued-query exps) (car exps))
+(define (uniquely-asserted contents frame-stream)
+	(stream-flatmap
+		(lambda (frame)
+		; not null && null cdr
+			(let ((qeval-frame
+					(qeval (uniqued-query contents) (singleton-stream frame))))
+				(if (and (not (stream-null? qeval-frame))
+						 (stream-null? (stream-cdr qeval-frame)))
+					qeval-frame
+					the-empty-stream)))
+		frame-stream))
+(put 'unique 'qeval uniquely-asserted)
+
 (query-driver-loop)
+
+#|
+
+ex. not query
+(and (job ?x ?job) (not (job ?x (computer . ?type))))
+
+DEBUG
+(assert! (job (Bitdiddle Ben) (computer wizard)))
+(assert! (job (Hacker Alyssa P) (computer programmer)))
+(assert! (job (Fect Cy D) (computer programmer)))
+(assert! (job (Tweakit Lem E) (computer technician)))
+(assert! (job (Reasoner Louis) (computer programmer trainee)))
+(assert! (job (Warbucks Oliver) (administration big wheel)))
+(assert! (job (Scrooge Eben) (accounting chief accountant)))
+(assert! (job (Cratchet Robert) (accounting scrivener)))
+(assert! (job (Aull DeWitt) (administration secretary)))
+
+(unique (job ?x (computer wizard)))
+(unique (job ?x (computer programmer)))
+(and (job ?x ?j) (unique (job ?anyone ?j)))
+
+ちょうど⼀⼈の部下を持つ⼈をすべて列挙するクエリを作り、実装をテストせよ。
+
+(assert! (supervisor (Hacker Alyssa P) (Bitdiddle Ben)))
+(assert! (supervisor (Fect Cy D) (Bitdiddle Ben)))
+(assert! (supervisor (Tweakit Lem E) (Bitdiddle Ben)))
+(assert! (supervisor (Reasoner Louis) (Hacker Alyssa P)))
+(assert! (supervisor (Bitdiddle Ben) (Warbucks Oliver)))
+(assert! (supervisor (Scrooge Eben) (Warbucks Oliver)))
+(assert! (supervisor (Cratchet Robert) (Scrooge Eben)))
+(assert! (supervisor (Aull DeWitt) (Warbucks Oliver)))
+
+(and (supervisor ?j ?boss)
+	 (unique (supervisor ?anyone ?boss)))
+
+|#
