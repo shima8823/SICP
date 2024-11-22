@@ -281,10 +281,6 @@
 			(interleave-delayed (force delayed-s2) (delay (stream-cdr s1))))))
 
 (define (stream-flatmap proc s) (flatten-stream (stream-map proc s)))
-(define (flatten-stream stream)
-	(if (stream-null? stream)
-		the-empty-stream
-		(interleave-delayed (stream-car stream) (delay (flatten-stream (stream-cdr stream))))))
 
 (define (singleton-stream x) (cons-stream x the-empty-stream))
 
@@ -360,4 +356,20 @@
 (define (extend variable value frame)
 	(cons (make-binding variable value) frame))
 
+(define (flatten-stream stream)
+	(if (stream-null? stream)
+		the-empty-stream
+		(interleave-delayed (stream-car stream) (delay (flatten-stream (stream-cdr stream))))))
+
+(define (flatten-stream stream)
+	(if (stream-null? stream)
+		the-empty-stream
+		(interleave (stream-car stream) (flatten-stream (stream-cdr stream)))))
+
 (query-driver-loop)
+
+#|
+
+streamが無限ストリームだった場合infinity loopになる。
+
+|#
