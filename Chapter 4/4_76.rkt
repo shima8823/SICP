@@ -1,6 +1,8 @@
+; 実装をskipしたが解く方針は合っている。
+
 #lang sicp
 
-(#%require "./query-util.rkt")
+(#%require "../query-util.rkt")
 
 (define input-prompt "~~~ Query input :")
 (define output-prompt "~~~ Query results :")
@@ -55,13 +57,6 @@
 				(find-assertions query-pattern frame)
 				(delay (apply-rules query-pattern frame))))
 		frame-stream))
-
-(define (conjoin conjuncts frame-stream)
-	(if (empty-conjunction? conjuncts)
-		frame-stream
-		(conjoin (rest-conjuncts conjuncts)
-				 (qeval (first-conjunct conjuncts) frame-stream))))
-(put 'and 'qeval conjoin)
 
 (define (disjoin disjuncts frame-stream)
 	(if (empty-disjunction? disjuncts)
@@ -360,4 +355,124 @@
 (define (extend variable value frame)
 	(cons (make-binding variable value) frame))
 
+; answer http://community.schemewiki.org/?sicp-ex-4.76
+(define (new-conjoin conjuncts frame-stream) 
+	(if (empty-conjunction? conjuncts) 
+		frame-stream 
+		(merge (qeval (first-conjunct conjuncts) 
+						frame-stream) 
+				(new-conjoin (rest-conjuncts conjuncts) 
+							frame-stream)))) 
+(define (merge s1 s2) 
+	(cond ((stream-null? s1) s2) 
+			((stream-null? s2) s1) 
+			(else 
+			(stream-flatmap
+				(lambda (frame1) 
+					(stream-flatmap (lambda (frame2) 
+						(merge-frame frame1 frame2)) 
+					s2)) 
+				s1)))) 
+
+(define (merge-frame f1 f2) 
+	(if (null? f1) 
+		(singleton-stream f2) 
+		(let ((b1 (car f1))) 
+			(let ((b2 (assoc (car b1) f2))) 
+				(if b2 
+					(if (equal? (cdr b1) (cdr b2)) 
+						(merge-frame (cdr f1) f2) 
+						the-empty-stream) 
+					(merge-frame (cdr f1) (cons b1 f2))))))) 
+
 (query-driver-loop)
+
+#|
+
+(assert! (son Adam Cain))
+(assert! (son Cain Enoch))
+(assert! (son Enoch Irad))
+(assert! (son Irad Mehujael))
+(assert! (son Mehujael Methushael))
+(assert! (son Methushael Lamech))
+(assert! (wife Lamech Ada))
+(assert! (son Ada Jabal))
+(assert! (son Ada Jubal))
+(assert!
+	(rule ((grandson) ?g ?s)
+		(and (son ?g ?p)
+			 (son ?p ?s))))
+
+矛盾するとは？ n^2 /k回 → n^2 / k^2回になるのがわからない
+	非効率ver DEBUG済み
+		((grandson) Adam ?c)
+			conjoin
+				(son ?g ?p): {{{? 1 p} . Cain} {{? c} ? 1 s} {{? 1 g} . Adam}}
+				↓
+				(son ?p ?s): {{{? 1 s} . Enoch} {{? 1 p} . Cain} {{? c} ? 1 s} {{? 1 g} . Adam}}
+			このversionは例を示すのに適さない.
+
+		andの順番が逆の時
+		((grandson) Adam ?c)
+			conjoin
+				(son ?p ?s): {{{? 1 s} . Jubal} {{? 1 p} . Ada} {{? c} ? 1 s} {{? 1 g} . Adam}}
+				↓全列挙から矛盾するframeを排除する
+				(son ?g ?p): {{{? 1 s} . Enoch} {{? 1 p} . Cain} {{? c} ? 1 s} {{? 1 g} . Adam}}
+
+		例
+		simple-query ((grandson) Adam (? c)) <-このクエリに対して以下のframeを一つずつpattern-matchさせるのでn^2/k回呼び出す必要がある。
+			(((? 1 s) . Jubal) ((? 1 p) . Ada) ((? c) ? 1 s) ((? 1 g) . Adam))
+			(((? 1 s) . Jabal) ((? 1 p) . Ada) ((? c) ? 1 s) ((? 1 g) . Adam))
+			(((? 1 s) . Lamech) ((? 1 p) . Methushael) ((? c) ? 1 s) ((? 1 g) . Adam))
+			(((? 1 s) . Methushael) ((? 1 p) . Mehujael) ((? c) ? 1 s) ((? 1 g) . Adam))
+			(((? 1 s) . Mehujael) ((? 1 p) . Irad) ((? c) ? 1 s) ((? 1 g) . Adam))
+			(((? 1 s) . Irad) ((? 1 p) . Enoch) ((? c) ? 1 s) ((? 1 g) . Adam))
+			(((? 1 s) . Enoch) ((? 1 p) . Cain) ((? c) ? 1 s) ((? 1 g) . Adam))
+			(((? 1 s) . Cain) ((? 1 p) . Adam) ((? c) ? 1 s) ((? 1 g) . Adam))
+
+			return: (((? 1 s) . Enoch) ((? 1 p) . Cain) ((? c) ? 1 s) ((? 1 g) . Adam))
+		
+	効率ver
+		((grandson) Adam ?c)
+			conjoin
+				(son ?p ?s): 全列挙
+					(((? 1 s) . Jubal) ((? 1 p) . Ada) ((? c) ? 1 s) ((? 1 g) . Adam))
+					(((? 1 s) . Jabal) ((? 1 p) . Ada) ((? c) ? 1 s) ((? 1 g) . Adam))
+					(((? 1 s) . Lamech) ((? 1 p) . Methushael) ((? c) ? 1 s) ((? 1 g) . Adam))
+					(((? 1 s) . Methushael) ((? 1 p) . Mehujael) ((? c) ? 1 s) ((? 1 g) . Adam))
+					(((? 1 s) . Mehujael) ((? 1 p) . Irad) ((? c) ? 1 s) ((? 1 g) . Adam))
+					(((? 1 s) . Irad) ((? 1 p) . Enoch) ((? c) ? 1 s) ((? 1 g) . Adam))
+					(((? 1 s) . Enoch) ((? 1 p) . Cain) ((? c) ? 1 s) ((? 1 g) . Adam))
+					(((? 1 s) . Cain) ((? 1 p) . Adam) ((? c) ? 1 s) ((? 1 g) . Adam))
+				(son ?g ?p): 全列挙
+					(((? 1 p) . Cain) ((? c) ? 1 s) ((? 1 g) . Adam))
+
+		((grandson) ?g ?s)
+			(son ?p ?s):
+				(((? 1 s) . Jubal) ((? 1 p) . Ada) ((? s) ? 1 s) ((? g) ? 1 g))
+				(((? 1 s) . Jabal) ((? 1 p) . Ada) ((? s) ? 1 s) ((? g) ? 1 g))
+				(((? 1 s) . Lamech) ((? 1 p) . Methushael) ((? s) ? 1 s) ((? g) ? 1 g))
+				(((? 1 s) . Methushael) ((? 1 p) . Mehujael) ((? s) ? 1 s) ((? g) ? 1 g))
+				(((? 1 s) . Mehujael) ((? 1 p) . Irad) ((? s) ? 1 s) ((? g) ? 1 g))
+				(((? 1 s) . Irad) ((? 1 p) . Enoch) ((? s) ? 1 s) ((? g) ? 1 g))
+				(((? 1 s) . Enoch) ((? 1 p) . Cain) ((? s) ? 1 s) ((? g) ? 1 g))
+				(((? 1 s) . Cain) ((? 1 p) . Adam) ((? s) ? 1 s) ((? g) ? 1 g))
+			(son ?g ?p):
+				(((? 1 p) . Jubal) ((? 1 g) . Ada) ((? s) ? 1 s) ((? g) ? 1 g))
+				(((? 1 p) . Jabal) ((? 1 g) . Ada) ((? s) ? 1 s) ((? g) ? 1 g))
+				(((? 1 p) . Lamech) ((? 1 g) . Methushael) ((? s) ? 1 s) ((? g) ? 1 g))
+				(((? 1 p) . Methushael) ((? 1 g) . Mehujael) ((? s) ? 1 s) ((? g) ? 1 g))
+				(((? 1 p) . Mehujael) ((? 1 g) . Irad) ((? s) ? 1 s) ((? g) ? 1 g))
+				(((? 1 p) . Irad) ((? 1 g) . Enoch) ((? s) ? 1 s) ((? g) ? 1 g))
+				(((? 1 p) . Enoch) ((? 1 g) . Cain) ((? s) ? 1 s) ((? g) ? 1 g))
+				(((? 1 p) . Cain) ((? 1 g) . Adam) ((? s) ? 1 s) ((? g) ? 1 g))
+
+		->つまり、frameのkeyがもう一つのframeのkeyが存在した時に、値は同じではないことが矛盾しているということである。
+			全てのkey-valueが同じあった場合、mergeして片方しかないkey-valueは追加してあげる。
+
+<n^2 / k から n^2 / k^2になる理由>
+n^2/kはn/kのデータを2つ目のクエリでn/kを走査してからkの値は変わらずにn^2/kになる
+n^2 / k^2は二つのn/k, n/kを生成してから、mergeしているからn^2 / k^2になる。
+本に書いてある通りの感覚を掴め！
+
+|#
