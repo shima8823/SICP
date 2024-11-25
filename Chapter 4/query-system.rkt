@@ -460,6 +460,33 @@ qeval
 				qeval
 ---
 
+not DEBUG
+
+(assert! (job (Bitdiddle Ben) (computer wizard)))
+(assert! (job (Hacker Alyssa P) (computer programmer)))
+(assert! (job (Fect Cy D) (computer programmer)))
+(assert! (job (Tweakit Lem E) (computer technician)))
+(assert! (job (Reasoner Louis) (computer programmer trainee)))
+(assert! (job (Warbucks Oliver) (administration big wheel)))
+(assert! (job (Scrooge Eben) (accounting chief accountant)))
+(assert! (job (Cratchet Robert) (accounting scrivener)))
+(assert! (job (Aull DeWitt) (administration secretary)))
+(assert! (supervisor (Hacker Alyssa P) (Bitdiddle Ben)))
+(assert! (supervisor (Fect Cy D) (Bitdiddle Ben)))
+(assert! (supervisor (Tweakit Lem E) (Bitdiddle Ben)))
+(assert! (supervisor (Reasoner Louis) (Hacker Alyssa P)))
+(assert! (supervisor (Bitdiddle Ben) (Warbucks Oliver)))
+(assert! (supervisor (Scrooge Eben) (Warbucks Oliver)))
+(assert! (supervisor (Cratchet Robert) (Scrooge Eben)))
+(assert! (supervisor (Aull DeWitt) (Warbucks Oliver)))
+
+(and (supervisor ?x ?y)
+	(not (job ?x (computer programmer))))
+(and (not (job ?x (computer programmer)))
+	(supervisor ?x ?y))
+(not (baseball-fan (Bitdiddle Ben)))
+	->qevalから()が渡されてしまい、instantiate
+
 ; always-trueはrule sameで出そう。
 
 |#
