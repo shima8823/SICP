@@ -24,7 +24,7 @@
 								frame
 								(lambda (v f)
 									(contract-question-mark v))))
-						(qeval q (singleton-stream '()))))
+						(apply-filter (qeval q (singleton-stream '())))))
 				(query-driver-loop)))))
 
 (define (instantiate exp frame unbound-var-handler)
@@ -43,10 +43,14 @@
 ; 4.4.4.2
 
 (define (qeval query frame-stream)
-	(let ((qproc (get (type query) 'qeval)))
-		(if qproc
-			(qproc (contents query) frame-stream)
-			(simple-query query frame-stream))))
+	(let* ((qproc (get (type query) 'qeval))
+		   (q-val
+			(if qproc
+				(qproc (contents query) frame-stream)
+				(simple-query query frame-stream))))
+		(if (enough-bindings? q-val)
+			(apply-filter q-val)
+			q-val)))
 
 (define (simple-query query-pattern frame-stream)
 	(stream-flatmap
@@ -70,17 +74,6 @@
 			(qeval (first-disjunct disjuncts) frame-stream)
 			(delay (disjoin (rest-disjuncts disjuncts) frame-stream)))))
 (put 'or 'qeval disjoin)
-
-(define (negate operands frame-stream)
-	(stream-flatmap
-		(lambda (frame)
-			(if (stream-null?
-				(qeval (negated-query operands)
-						(singleton-stream frame)))
-				(singleton-stream frame)
-				the-empty-stream))
-		frame-stream))
-(put 'not 'qeval negate)
 
 (define (lisp-value call frame-stream)
 	(stream-flatmap
@@ -360,9 +353,89 @@
 (define (extend variable value frame)
 	(cons (make-binding variable value) frame))
 
+
+(define (negate operands dummy-frame-stream)
+	(define (negate-filter frame-stream)
+		(stream-flatmap
+			(lambda (frame)
+				(if (stream-null?
+					(qeval (negated-query operands)
+							(singleton-stream frame)))
+					(singleton-stream frame)
+					the-empty-stream))
+			frame-stream))
+	(let ((old-filters THE-FILTERS))
+		(set! THE-FILTERS
+			(cons-stream
+				(lambda (frame-stream)
+					(negate-filter frame-stream))
+				old-filters))
+		dummy-frame-stream))
+(put 'not 'qeval negate)
+
+(define THE-FILTERS the-empty-stream)
+(define (filter-initial)
+	(set! THE-FILTERS the-empty-stream))
+(define (empty-frame? frame) (null? frame))
+(define (empty-filter? exps) (null? exps))
+(define (first-filter exps) (stream-car exps))
+(define (rest-filter exps) (stream-cdr exps))
+(define (apply-filter frame-stream)
+	(define (run filters frame-stream)
+		(cond 
+			  ((empty-filter? filters) frame-stream)
+			  ((stream-null? (stream-car frame-stream)) '()) ; don't apply filter
+			  (else
+				(run (rest-filter filters)
+					 ((first-filter filters) frame-stream)))))
+	(let ((filters THE-FILTERS))
+		(filter-initial)
+		(run filters frame-stream)))
+(define enough-bindings-max 5)
+(define (enough-bindings? frame-stream)
+	(define (iter count frame)
+		(cond
+			((>= count enough-bindings-max) #t)
+			((stream-null? frame) #f)
+			(else (iter (inc count) (stream-cdr frame)))))
+	(iter 0 frame-stream))
+
 (query-driver-loop)
 
 #|
 
+(assert! (job (Bitdiddle Ben) (computer wizard)))
+(assert! (job (Hacker Alyssa P) (computer programmer)))
+(assert! (job (Fect Cy D) (computer programmer)))
+(assert! (job (Tweakit Lem E) (computer technician)))
+(assert! (job (Reasoner Louis) (computer programmer trainee)))
+(assert! (job (Warbucks Oliver) (administration big wheel)))
+(assert! (job (Scrooge Eben) (accounting chief accountant)))
+(assert! (job (Cratchet Robert) (accounting scrivener)))
+(assert! (job (Aull DeWitt) (administration secretary)))
+(assert! (supervisor (Hacker Alyssa P) (Bitdiddle Ben)))
+(assert! (supervisor (Fect Cy D) (Bitdiddle Ben)))
+(assert! (supervisor (Tweakit Lem E) (Bitdiddle Ben)))
+(assert! (supervisor (Reasoner Louis) (Hacker Alyssa P)))
+(assert! (supervisor (Bitdiddle Ben) (Warbucks Oliver)))
+(assert! (supervisor (Scrooge Eben) (Warbucks Oliver)))
+(assert! (supervisor (Cratchet Robert) (Scrooge Eben)))
+(assert! (supervisor (Aull DeWitt) (Warbucks Oliver)))
+
+(job (Bitdiddle Ben) (computer wizard))
+(not (baseball-fan (Bitdiddle Ben)))
+(and (not (job ?x (computer programmer)))
+		  (supervisor ?x ?y))
+(and (supervisor ?x ?y)
+	 (not (job ?x (computer programmer))))
+
+詳細
+notがあったらとりあえずdelayしておく。
+他のクエリを実行する。
+そのframeを元にnotを実行する。
+
+notがあったらoperandsとnotの実行内容をglobalに保存してあげる
+emptyストリームを返す。
+initiateする前に(not operands frame)を実行する。
 
 |#
