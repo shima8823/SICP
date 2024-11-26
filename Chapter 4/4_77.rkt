@@ -1,3 +1,5 @@
+; 良問 notの仕組みを理解できた
+
 #lang sicp
 
 (#%require "./query-util.rkt")
