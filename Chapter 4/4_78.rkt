@@ -6,26 +6,32 @@
 (define output-prompt "~~~ Query results :")
 
 (define (query-driver-loop)
-	(prompt-for-input input-prompt)
-	(let ((q (query-syntax-process (read))))
-		(cond ((assertion-to-be-added? q)
-				(add-rule-or-assertion! (add-assertion-body q))
-				(newline)
-				(display "Assertion added to data base.")
-				(query-driver-loop))
-			  (else
-				(newline)
-				(display output-prompt)
-				(display-stream
-					(stream-map
-						(lambda (frame)
-							(instantiate
-								q
-								frame
-								(lambda (v f)
-									(contract-question-mark v))))
-						(qeval q (singleton-stream '()))))
-				(query-driver-loop)))))
+	(define (internal-loop try-again)
+		(prompt-for-input input-prompt)
+		(let ((input (read)))
+			(if (eq? input 'try-again)
+				(try-again)
+				(let ((q (query-syntax-process input)))
+					(cond ((assertion-to-be-added? q)
+							(add-rule-or-assertion! (add-assertion-body q))
+							(newline) (display "Assertion added to data base.")
+							(query-driver-loop))
+						  (else
+							(newline) (display output-prompt)
+							(display-stream
+								(stream-map
+									(lambda (frame)
+										(instantiate
+											q
+											frame
+											(lambda (v f)
+												(contract-question-mark v))))
+									(qeval q (singleton-stream '()))))
+							(query-driver-loop)))))))
+	(internal-loop
+		(lambda ()
+			(newline) (display ";;; There is no current problem ")
+			(query-driver-loop))))
 
 (define (instantiate exp frame unbound-var-handler)
 	(define (copy exp)
@@ -361,3 +367,15 @@
 	(cons (make-binding variable value) frame))
 
 (query-driver-loop)
+
+#|
+
+方針
+1. try-againで"hello world"
+
+2. simple-queryで一つのクエリが選ばれた場合、速攻で返す。
+	値が生成されなかったらtry-againする。
+
+3. 回答が存在しなかった場合には、There are no more values of.
+
+|#
