@@ -80,6 +80,8 @@
 (define (display-line x) (newline) (display x))
 (define (prompt-for-input string)
 	(newline) (newline) (display string) (newline))
+(define (announce-output string)
+	(newline) (display string) (newline))
 (define (tagged-list? exp tag)
 	(if (pair? exp)
 		(eq? (car exp) tag)
