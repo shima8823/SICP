@@ -18,16 +18,22 @@
 							(query-driver-loop))
 						  (else
 							(newline) (display output-prompt)
-							(display-stream
-								(stream-map
-									(lambda (frame)
+							(qeval q (singleton-stream '())
+								;; success
+								(lambda (frame next-alternative)
+									(display-stream
 										(instantiate
 											q
 											frame
 											(lambda (v f)
 												(contract-question-mark v))))
-									(qeval q (singleton-stream '()))))
-							(query-driver-loop)))))))
+									(internal-loop next-alternative))
+								;; failure
+								(lambda ()
+									(announce-output ";;; There are no more values of")
+									(user-print input)
+									(query-driver-loop)))))
+							(query-driver-loop)))))
 	(internal-loop
 		(lambda ()
 			(newline) (display ";;; There is no current problem ")
@@ -48,13 +54,13 @@
 
 ; 4.4.4.2
 
-(define (qeval query frame-stream)
+(define (qeval query frame-stream succeed fail)
 	(let ((qproc (get (type query) 'qeval)))
 		(if qproc
-			(qproc (contents query) frame-stream)
-			(simple-query query frame-stream))))
+			(qproc (contents query) frame-stream succeed fail)
+			(simple-query query frame-stream succeed fail))))
 
-(define (simple-query query-pattern frame-stream)
+(define (simple-query query-pattern frame-stream succeed fail)
 	(stream-flatmap
 		(lambda (frame)
 			(stream-append-delayed
@@ -348,6 +354,7 @@
 	(cons '? (cons rule-application-id (cdr var))))
 
 (define (contract-question-mark variable)
+	(display "contract: ")(display variable)(newline)
 	(string->symbol
 		(string-append "?"
 			(if (number? (cadr variable))
@@ -366,9 +373,33 @@
 (define (extend variable value frame)
 	(cons (make-binding variable value) frame))
 
+(define (user-print query) (display query))
+
 (query-driver-loop)
 
 #|
+
+DEBUG
+
+(assert! (job (Bitdiddle Ben) (computer wizard)))
+(assert! (job (Hacker Alyssa P) (computer programmer)))
+(assert! (job (Fect Cy D) (computer programmer)))
+(assert! (job (Tweakit Lem E) (computer technician)))
+(assert! (job (Reasoner Louis) (computer programmer trainee)))
+(assert! (job (Warbucks Oliver) (administration big wheel)))
+(assert! (job (Scrooge Eben) (accounting chief accountant)))
+(assert! (job (Cratchet Robert) (accounting scrivener)))
+(assert! (job (Aull DeWitt) (administration secretary)))
+(assert! (supervisor (Hacker Alyssa P) (Bitdiddle Ben)))
+(assert! (supervisor (Fect Cy D) (Bitdiddle Ben)))
+(assert! (supervisor (Tweakit Lem E) (Bitdiddle Ben)))
+(assert! (supervisor (Reasoner Louis) (Hacker Alyssa P)))
+(assert! (supervisor (Bitdiddle Ben) (Warbucks Oliver)))
+(assert! (supervisor (Scrooge Eben) (Warbucks Oliver)))
+(assert! (supervisor (Cratchet Robert) (Scrooge Eben)))
+(assert! (supervisor (Aull DeWitt) (Warbucks Oliver)))
+
+(job ?x (computer programmer))
 
 方針
 1. try-againで"hello world"
@@ -377,5 +408,23 @@
 	値が生成されなかったらtry-againする。
 
 3. 回答が存在しなかった場合には、There are no more values of.
+
+考察
+この節で構築した仕組みの多くは⾮決定性探索とバックトラックに含まれていたということに気づくはずだ。
+->delayとforceのことだろう。
+
+次回 ambeval
+2時間経っても光が見えなかったら答えを見よう。
+
+Q.失敗はどう判定すればいい？
+instantiateの部分ではクエリが成功している前提。
+最終のqevalのクエリ結果が何も含まれていない時は失敗
+
+Q.contract-...?はどこで使われている？
+(or (supervisor ?x ?y)
+        (not (job ?y ?z)))   
+
+simple-queryでは何らかのframeを取得できなければfail
+the-empty-frameを返しているところでfail
 
 |#
