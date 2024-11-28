@@ -18,10 +18,12 @@
 							(query-driver-loop))
 						  (else
 							(newline) (display output-prompt)
+							(newline) (display ";;; Starting a new problem")
 							(qeval q (singleton-stream '())
 								;; success
 								(lambda (frame next-alternative)
-									(display-stream
+									(newline)
+									(display
 										(instantiate
 											q
 											frame
@@ -354,7 +356,6 @@
 	(cons '? (cons rule-application-id (cdr var))))
 
 (define (contract-question-mark variable)
-	(display "contract: ")(display variable)(newline)
 	(string->symbol
 		(string-append "?"
 			(if (number? (cadr variable))
@@ -399,7 +400,10 @@ DEBUG
 (assert! (supervisor (Cratchet Robert) (Scrooge Eben)))
 (assert! (supervisor (Aull DeWitt) (Warbucks Oliver)))
 
+(and (supervisor ?x ?y)
+	 (job ?x (computer programmer)))
 (job ?x (computer programmer))
+(job ?x (computer . ?type))
 
 方針
 1. try-againで"hello world"
