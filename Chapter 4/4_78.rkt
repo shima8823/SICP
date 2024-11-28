@@ -62,13 +62,37 @@
 			(qproc (contents query) frame-stream succeed fail)
 			(simple-query query frame-stream succeed fail))))
 
+(define (apply-succeed streams succeed fail)
+	(if (stream-null? streams)
+		(fail)
+		(succeed
+			(stream-car streams)
+			(lambda () (apply-succeed (stream-cdr streams) succeed fail)))))
+
 (define (simple-query query-pattern frame-stream succeed fail)
-	(stream-flatmap
-		(lambda (frame)
-			(stream-append-delayed
-				(find-assertions query-pattern frame)
-				(delay (apply-rules query-pattern frame))))
-		frame-stream))
+	(let ((streams
+		(stream-flatmap
+			(lambda (frame)
+				(stream-append-delayed
+					(find-assertions query-pattern frame)
+					(delay (apply-rules query-pattern frame))))
+			frame-stream)))
+		(apply-succeed streams succeed fail)))
+
+; streamを組み合わせる時にsucceedされる場合
+; (define (simple-query query-pattern frame-stream succeed fail)
+; 	(let ((ret-singleton-stream
+; 		(stream-flatmap
+; 			(lambda (frame)
+; 				; (display-stream (find-assertions query-pattern frame))
+; 				(stream-append-delayed
+; 					(find-assertions query-pattern frame)
+; 					(delay (apply-rules query-pattern frame))))
+; 			frame-stream
+; 			succeed fail)))
+; 		(if (null? ret-singleton-stream)
+; 			(fail)
+; 			(succeed (stream-car ret-singleton-stream) fail))))
 
 (define (conjoin conjuncts frame-stream)
 	(if (empty-conjunction? conjuncts)
@@ -76,6 +100,21 @@
 		(conjoin (rest-conjuncts conjuncts)
 				 (qeval (first-conjunct conjuncts) frame-stream))))
 (put 'and 'qeval conjoin)
+
+; streamを組み合わせる時にsucceedされる場合
+; (define (conjoin conjuncts frame-stream succeed fail)
+; 	(define (filter conj frame-s)
+; 		(qeval (first-conjunct conj) frame-s
+; 			(lambda (frame next) ;succeed
+; 				(if (empty-conjunction? (rest-conjuncts conj))
+; 					succeed
+; 					(filter (rest-conjuncts conj) (singleton-stream frame))))
+; 			(lambda () the-empty-stream)))
+; 	(if (empty-conjunction? conjuncts)
+; 		(succeed frame-stream fail) ; (and)
+; 		(filter conjuncts frame-stream) ; other
+; 	)
+; )
 
 (define (disjoin disjuncts frame-stream)
 	(if (empty-disjunction? disjuncts)
@@ -124,6 +163,15 @@
 		(lambda (datum) (check-an-assertion datum pattern frame))
 		(fetch-assertions pattern frame)))
 
+; streamを組み合わせる時にsucceedされる場合
+; (define (find-assertions pattern frame)
+; 	(stream-flatmap
+; 		(lambda (datum) (check-an-assertion datum pattern frame))
+; 		(fetch-assertions pattern frame)
+; 		(lambda (frame next)
+; 			(cons-stream frame (next)))
+; 		(lambda () the-empty-stream)))
+
 (define (check-an-assertion assertion query-pat query-frame)
 	(let ((match-result (pattern-match query-pat assertion query-frame)))
 		(if (eq? match-result 'failed)
@@ -153,6 +201,15 @@
 	(stream-flatmap
 		(lambda (rule) (apply-a-rule rule pattern frame))
 		(fetch-rules pattern frame)))
+
+; streamを組み合わせる時にsucceedされる場合
+; (define (apply-rules pattern frame succeed fail)
+; 	(stream-flatmap
+; 		(lambda (rule) (apply-a-rule rule pattern frame))
+; 		(fetch-rules pattern frame)
+; 		(lambda (frame next)
+; 			(cons-stream frame (next)))
+; 		(lambda () the-empty-stream)))
 
 (define (apply-a-rule rule query-pattern query-frame)
 	(let ((clean-rule (rename-variables-in rule)))
@@ -299,6 +356,26 @@
 	(if (stream-null? stream)
 		the-empty-stream
 		(interleave-delayed (stream-car stream) (delay (flatten-stream (stream-cdr stream))))))
+
+; streamを組み合わせる時にsucceedされる場合
+; (define (interleave-delayed s1 delayed-s2 succeed fail)
+; 	(if (stream-null? s1)
+; 		(force delayed-s2) ; stream
+; 		(succeed
+; 			(stream-car s1)
+; 			(lambda () ;next empty-stream or 
+; 				(let ((ret (interleave-delayed (force delayed-s2) (delay (stream-cdr s1)) succeed fail)))
+; 					(if (not (procedure? ret))
+; 						(succeed
+; 							(stream-car ret) )))
+; 						))))
+
+; (define (stream-flatmap proc s succeed fail)
+; 	(flatten-stream (stream-map proc s) succeed fail))
+; (define (flatten-stream stream succeed fail)
+; 	(if (stream-null? stream)
+; 		the-empty-stream
+; 		(interleave-delayed (stream-car stream) (delay (flatten-stream (stream-cdr stream) succeed fail)) succeed fail)))
 
 (define (singleton-stream x) (cons-stream x the-empty-stream))
 
