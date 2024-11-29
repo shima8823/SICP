@@ -57,10 +57,17 @@
 ; 4.4.4.2
 
 (define (qeval query frame-stream succeed fail)
-	(let ((qproc (get (type query) 'qeval)))
-		(if qproc
-			(qproc (contents query) frame-stream succeed fail)
-			(simple-query query frame-stream succeed fail))))
+	(let*
+		((qproc (get (type query) 'qeval))
+		 (streams
+		 	(if qproc
+				(qproc (contents query) frame-stream
+					(lambda (val next) (cons-stream val (next)))
+					(lambda () the-empty-stream))
+				(simple-query query frame-stream
+					(lambda (val next) (cons-stream val (next)))
+					(lambda () the-empty-stream)))))
+		(apply-succeed streams succeed fail)))
 
 (define (apply-succeed streams succeed fail)
 	(if (stream-null? streams)
@@ -70,14 +77,12 @@
 			(lambda () (apply-succeed (stream-cdr streams) succeed fail)))))
 
 (define (simple-query query-pattern frame-stream succeed fail)
-	(let ((streams
-		(stream-flatmap
-			(lambda (frame)
-				(stream-append-delayed
-					(find-assertions query-pattern frame)
-					(delay (apply-rules query-pattern frame))))
-			frame-stream)))
-		(apply-succeed streams succeed fail)))
+	(stream-flatmap
+		(lambda (frame)
+			(stream-append-delayed
+				(find-assertions query-pattern frame)
+				(delay (apply-rules query-pattern frame))))
+		frame-stream))
 
 ; streamを組み合わせる時にsucceedされる場合
 ; (define (simple-query query-pattern frame-stream succeed fail)
@@ -94,11 +99,13 @@
 ; 			(fail)
 ; 			(succeed (stream-car ret-singleton-stream) fail))))
 
-(define (conjoin conjuncts frame-stream)
+(define (conjoin conjuncts frame-stream succeed fail)
 	(if (empty-conjunction? conjuncts)
 		frame-stream
 		(conjoin (rest-conjuncts conjuncts)
-				 (qeval (first-conjunct conjuncts) frame-stream))))
+				 (qeval (first-conjunct conjuncts) frame-stream
+				 	succeed fail)
+				 succeed fail)))
 (put 'and 'qeval conjoin)
 
 ; streamを組み合わせる時にsucceedされる場合
@@ -124,12 +131,13 @@
 			(delay (disjoin (rest-disjuncts disjuncts) frame-stream)))))
 (put 'or 'qeval disjoin)
 
-(define (negate operands frame-stream)
+(define (negate operands frame-stream succeed fail)
 	(stream-flatmap
 		(lambda (frame)
 			(if (stream-null?
 				(qeval (negated-query operands)
-						(singleton-stream frame)))
+						(singleton-stream frame)
+						succeed fail))
 				(singleton-stream frame)
 				the-empty-stream))
 		frame-stream))
@@ -479,6 +487,8 @@ DEBUG
 
 (and (supervisor ?x ?y)
 	 (job ?x (computer programmer)))
+(and (supervisor ?x ?y)
+	 (not (job ?x (computer programmer))))
 (job ?x (computer programmer))
 (job ?x (computer . ?type))
 
