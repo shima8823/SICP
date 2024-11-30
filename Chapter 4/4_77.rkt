@@ -1,4 +1,5 @@
 ; 良問 notの仕組みを理解できた
+; 追記
 ; enough-bindingsは意味はうまくいかない。↓
 ; 下記urlのLisScheSicのall-vars-has-bindingsのようなcheckにするべきだ。
 ; http://community.schemewiki.org/?sicp-ex-4.77
