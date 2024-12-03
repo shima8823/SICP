@@ -1,3 +1,5 @@
+#lang sicp
+
 (define (make-machine register-names ops controller-text)
 	(let ((machine (make-new-machine)))
 		(for-each
