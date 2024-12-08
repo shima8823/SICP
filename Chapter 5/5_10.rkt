@@ -164,6 +164,8 @@
 			(make-restore inst machine stack pc))
 		  ((eq? (car inst) 'perform)
 			(make-perform inst machine labels ops pc))
+		  ((eq? (car inst) 'inc)
+			(make-inc inst machine pc))
 		  (else
 			(error "Unknown instruction type : ASSEMBLE " inst))))
 
@@ -307,20 +309,30 @@
 		(eq? (car exp) tag)
 		false))
 
-(define gcd-machine
-	(make-machine
-		'(a b t)
-		(list (list 'rem remainder) (list '= =))
-		'(test-b
-			(test (op =) (reg b) (const 0))
-			(branch (label gcd-done))
-			(assign t (op rem) (reg a) (reg b))
-			(assign a (reg b))
-			(assign b (reg t))
-			(goto (label test-b))
-		gcd-done)))
+(define (make-inc inst machine pc)
+	(let* ((reg (inc-reg-name inst))
+		   (target (get-register machine reg)))
+		(lambda ()
+			(let ((value (get-contents target)))
+				(if (number? value)
+					(begin
+						(set-contents! target (+ value 1))
+						(advance-pc pc))
+					(error "Not a Number" reg))))))
+(define (inc-reg-name inc-instruction) (cadr inc-instruction))
 
-(set-register-contents! gcd-machine 'a 206)
-(set-register-contents! gcd-machine 'b 40)
-(start gcd-machine)
-(get-register-contents gcd-machine 'a)
+(define inc-machine
+	(make-machine
+		'(a)
+		(list (list '= =) (list '+ +))
+		'(test-a
+			(test (op =) (reg a) (const 100))
+			(branch (label inc-done))
+			(inc a)
+			; (assign a (op +) (reg a) (const 1))
+			(goto (label test-a))
+		inc-done)))
+
+(set-register-contents! inc-machine 'a 0)
+(start inc-machine)
+(get-register-contents inc-machine 'a)
