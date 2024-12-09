@@ -6,6 +6,10 @@
 			(lambda (register-name)
 				((machine 'allocate-register) register-name))
 			register-names)
+		(for-each
+			(lambda (register-name)
+				((machine 'allocate-stack) register-name))
+			register-names)
 		((machine 'install-operations) ops)
 		((machine 'install-instruction-sequence)
 		 (assemble controller-text machine))
@@ -27,34 +31,31 @@
 ; b answer: git log
 
 (define (make-stack)
-	(let ((s '())) ; (name value)
-		(define (push x name) (set! s (cons (cons name x) s)))
-		(define (pop name)
+	(let ((s '()))
+		(define (push x) (set! s (cons x s)))
+		(define (pop)
 			(if (null? s)
 				(error " Empty stack : POP")
 				(let ((top (car s)))
-					(if (eq? name (car top))
-						(begin
-							(set! s (cdr s))
-							(cdr top))
-						(error "Invalid register name" name)))))
+					(set! s (cdr s))
+					top)))
 		(define (initialize) (set! s '()) 'done)
 		(define (dispatch message)
 			(cond ((eq? message 'push) push)
-				  ((eq? message 'pop) pop)
+				  ((eq? message 'pop) (pop))
 				  ((eq? message 'initialize) (initialize))
 				  (else (error " Unknown request : STACK " message))))
 		dispatch))
 
-(define (pop stack name) ((stack 'pop) name))
-(define (push stack value name) ((stack 'push) value name))
+(define (pop stack) (stack 'pop))
+(define (push stack value) ((stack 'push) value))
 
 (define (make-new-machine)
 	(let ((pc (make-register 'pc))
 		  (flag (make-register 'flag))
-		  (stack (make-stack))
+		  (stack-table '())
 		  (the-instruction-sequence '()))
-		(let ((the-ops (list (list 'initialize-stack (lambda () (stack 'initialize)))))
+		(let ((the-ops (list (list 'initialize-stack (lambda () (for-each (lambda (s) (s 'initialize)) (map cadr stack-table))))))
 			  (register-table (list (list 'pc pc) (list 'flag flag))))
 			(define (allocate-register name)
 				(if (assoc name register-table)
@@ -67,6 +68,17 @@
 					(if val
 						(cadr val)
 						(error " Unknown register :" name))))
+			(define (allocate-stack name)
+				(if (assoc name stack-table)
+					(error " Multiply defined stack : " name)
+					(set! stack-table
+						(cons (list name (make-stack)) stack-table)))
+				'stack-allocated)
+			(define (lookup-stack name)
+				(let ((val (assoc name stack-table)))
+					(if val
+						(cadr val)
+						(error " Unknown stack :" name))))
 			(define (execute)
 				(let ((insts (get-contents pc)))
 					(if (null? insts)
@@ -83,10 +95,12 @@
 							(set! the-instruction-sequence seq)))
 					  ((eq? message 'allocate-register) allocate-register)
 					  ((eq? message 'get-register) lookup-register)
+					  ((eq? message 'allocate-stack) allocate-stack)
+					  ((eq? message 'get-stack) lookup-stack)
 					  ((eq? message 'install-operations)
 						(lambda (ops)
 							(set! the-ops (append the-ops ops))))
-					  ((eq? message 'stack) stack)
+					;   ((eq? message 'stack) stack)
 					  ((eq? message 'operations) the-ops)
 					  (else (error " Unknown request : MACHINE " message))))
 			dispatch)))
@@ -101,6 +115,8 @@
 
 (define (get-register machine reg-name)
 	((machine 'get-register) reg-name))
+(define (get-stack machine reg-name)
+	((machine 'get-stack) reg-name))
 
 (define (assemble controller-text machine)
 	(extract-labels
@@ -127,7 +143,7 @@
 (define (update-insts! insts labels machine)
 	(let ((pc (get-register machine 'pc))
 		  (flag (get-register machine 'flag))
-		  (stack (machine 'stack))
+		;   (stack (machine 'stack))
 		  (ops (machine 'operations)))
 		(for-each
 			(lambda (inst)
@@ -135,7 +151,7 @@
 					inst
 					(make-execution-procedure
 					  (instruction-text inst)
-					  labels machine pc flag stack ops)))
+					  labels machine pc flag ops))) ; delete stack
 			insts)))
 
 (define (make-instruction text) (cons text '()))
@@ -154,7 +170,7 @@
 
 ; 5.2.3
 
-(define (make-execution-procedure inst labels machine pc flag stack ops)
+(define (make-execution-procedure inst labels machine pc flag ops) ; delete stack
 	(cond ((eq? (car inst) 'assign)
 			(make-assign inst machine labels ops pc))
 		  ((eq? (car inst) 'test)
@@ -164,9 +180,9 @@
 		  ((eq? (car inst) 'goto)
 			(make-goto inst machine labels pc))
 		  ((eq? (car inst) 'save)
-			(make-save inst machine stack pc))
+			(make-save inst machine pc)) ; delete stack
 		  ((eq? (car inst) 'restore)
-			(make-restore inst machine stack pc))
+			(make-restore inst machine pc)) ; delete stack
 		  ((eq? (car inst) 'perform)
 			(make-perform inst machine labels ops pc))
 		  (else
@@ -239,17 +255,19 @@
 (define (goto-dest goto-instruction)
 	(cadr goto-instruction))
 
-(define (make-save inst machine stack pc)
+(define (make-save inst machine pc) ; delete stack
 	(let* ((name (stack-inst-reg-name inst))
-			(reg (get-register machine name)))
+			(reg (get-register machine name))
+			(stack (get-stack machine name)))
 		(lambda ()
-			(push stack (get-contents reg) name)
+			(push stack (get-contents reg))
 			(advance-pc pc))))
-(define (make-restore inst machine stack pc)
+(define (make-restore inst machine pc) ; delete stack
 	(let* ((name (stack-inst-reg-name inst))
-			(reg (get-register machine name)))
+			(reg (get-register machine name))
+			(stack (get-stack machine name)))
 		(lambda ()
-			(set-contents! reg (pop stack name))
+			(set-contents! reg (pop stack))
 			(advance-pc pc))))
 (define (stack-inst-reg-name stack-instruction)
 	(cadr stack-instruction))
@@ -341,9 +359,9 @@
 			(save val) ; Fib(n−1) を保存
 			(goto (label fib-loop))
 		  afterfib-n-2 ; リターン時に Fib(n−2) は val に⼊っている
-			; (assign n (reg val)) ; n には Fib(n−2) が⼊る
+			(assign n (reg val)) ; n には Fib(n−2) が⼊る
 			; a
-			(restore n) ; n には Fib(n−1) が⼊る
+			(restore val) ; n には Fib(n−1) が⼊る
 			(restore continue) 
 			(assign val ; Fib(n−2) + Fib(n−1)
 				(op +) (reg val) (reg n))
@@ -353,6 +371,9 @@
 			(goto (reg continue))
 		  fib-done
 		)))
+
+; c
+; use stack-table like register-table.
 
 (set-register-contents! fib-machine 'n 6)
 (start fib-machine)
