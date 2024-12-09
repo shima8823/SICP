@@ -328,18 +328,19 @@
 			(goto (label fib-loop)) ; 再帰呼び出しの実⾏
 		  afterfib-n-1 ; リターン時に Fib(n−1) は val に⼊っている
 			(restore n)
-			(restore continue)
+			; (restore continue)
 			;; Fib(n−2) を求める準備
 			(assign n (op -) (reg n) (const 2))
-			(save continue)
+			; (save continue)
 			(assign continue (label afterfib-n-2))
 			(save val) ; Fib(n−1) を保存
 			(goto (label fib-loop))
 		  afterfib-n-2 ; リターン時に Fib(n−2) は val に⼊っている
-			(assign n (reg val)) ; n には Fib(n−2) が⼊る
-			(restore val) ; val には Fib(n−1) が⼊る
+			; (assign n (reg val)) ; n には Fib(n−2) が⼊る
+			; a
+			(restore n) ; n には Fib(n−1) が⼊る
 			(restore continue) 
-			(assign val ; Fib(n−1) + Fib(n−2)
+			(assign val ; Fib(n−2) + Fib(n−1)
 				(op +) (reg val) (reg n))
 			(goto (reg continue)) ; 呼び出し元に戻る、答えはval の中
 		  immediate-answer
