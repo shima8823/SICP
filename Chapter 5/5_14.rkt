@@ -358,6 +358,26 @@
 			(assign val (const 1)) (goto (reg continue)) ;base case: 1! = 1
 		  fact-done)))
 
-(set-register-contents! fact-machine 'n 5)
+(set-register-contents! fact-machine 'n 10)
+((fact-machine 'stack) 'print-statistics)
 (start fact-machine)
 (get-register-contents fact-machine 'val)
+((fact-machine 'stack) 'print-statistics)
+
+#|
+
+n
+1	0:0
+2	2:2
+3	4:4
+4	6:6
+5	8:8
+6	10:10
+7	12:12
+8	14:14
+9	16:16
+10	18:18
+
+2(n-1)
+
+|#
