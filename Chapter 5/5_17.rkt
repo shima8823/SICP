@@ -68,6 +68,7 @@
 		  (flag (make-register 'flag))
 		  (stack (make-stack))
 		  (the-instruction-sequence '())
+		  (trace-on? #f)
 		  (instruction-counter 0))
 		(let ((the-ops
 				(list (list 'initialize-stack
@@ -93,6 +94,8 @@
 						(begin
 							(set! instruction-counter (+ 1 instruction-counter))
 							((instruction-execution-proc (car insts)))
+							(if trace-on?
+								(begin (newline) (display (caar insts))))
 							(execute)))))
 			(define (display-instruction-counter)
 				(display "Execute instruction count: ")
@@ -115,11 +118,15 @@
 							(set! the-ops (append the-ops ops))))
 					  ((eq? message 'stack) stack)
 					  ((eq? message 'operations) the-ops)
+					  ((eq? message 'trace-on) (set! trace-on? #t))
+					  ((eq? message 'trace-off) (set! trace-on? #f))
 					  (else (error " Unknown request : MACHINE " message))))
 			dispatch)))
 
 
 (define (start machine) (machine 'start))
+(define (trace-on machine) (machine 'trace-on))
+(define (trace-off machine) (machine 'trace-off))
 (define (get-inst-count machine) (machine 'get-instruction-counter))
 (define (reset-inst-count machine) (machine 'reset-instruction-counter))
 (define (get-register-contents machine register-name)
@@ -371,7 +378,12 @@
 
 (set-register-contents! fact-machine 'n 20)
 (get-inst-count fact-machine)
+
+(newline)
+(trace-on fact-machine)
 (start fact-machine)
+(newline)
+
 (reset-inst-count fact-machine)
 (get-inst-count fact-machine)
 (get-register-contents fact-machine 'val)
