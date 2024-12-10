@@ -67,7 +67,8 @@
 	(let ((pc (make-register 'pc))
 		  (flag (make-register 'flag))
 		  (stack (make-stack))
-		  (the-instruction-sequence '()))
+		  (the-instruction-sequence '())
+		  (instruction-counter 0))
 		(let ((the-ops
 				(list (list 'initialize-stack
 						(lambda () (stack 'initialize)))
@@ -90,8 +91,13 @@
 					(if (null? insts)
 						'done
 						(begin
+							(set! instruction-counter (+ 1 instruction-counter))
 							((instruction-execution-proc (car insts)))
 							(execute)))))
+			(define (display-instruction-counter)
+				(display "Execute instruction count: ")
+				(display instruction-counter)
+				(newline))
 			(define (dispatch message)
 				(cond ((eq? message 'start)
 						(set-contents! pc the-instruction-sequence)
@@ -101,6 +107,9 @@
 							(set! the-instruction-sequence seq)))
 					  ((eq? message 'allocate-register) allocate-register)
 					  ((eq? message 'get-register) lookup-register)
+					;   命令カウンタ
+					  ((eq? message 'get-instruction-counter) (display-instruction-counter))
+					  ((eq? message 'reset-instruction-counter) (display-instruction-counter) (set! instruction-counter 0))
 					  ((eq? message 'install-operations)
 						(lambda (ops)
 							(set! the-ops (append the-ops ops))))
@@ -111,6 +120,8 @@
 
 
 (define (start machine) (machine 'start))
+(define (get-inst-count machine) (machine 'get-instruction-counter))
+(define (reset-inst-count machine) (machine 'reset-instruction-counter))
 (define (get-register-contents machine register-name)
 	(get-contents (get-register machine register-name)))
 (define (set-register-contents! machine register-name value)
@@ -330,20 +341,37 @@
 		(eq? (car exp) tag)
 		false))
 
-(define gcd-machine
+(define fact-machine
 	(make-machine
-		'(a b t)
-		(list (list 'rem remainder) (list '= =))
-		'(test-b
-			(test (op =) (reg b) (const 0))
-			(branch (label gcd-done))
-			(assign t (op rem) (reg a) (reg b))
-			(assign a (reg b))
-			(assign b (reg t))
-			(goto (label test-b))
-		gcd-done)))
+		'(n val continue)
+		(list
+			(list '= =)
+			(list '- -)
+			(list '* *))
+		'((assign continue (label fact-done))
+		  fact-loop
+			(test (op =) (reg n) (const 1))
+			(branch (label base-case))
+			;; Set up for the recursive call by saving n and continue.
+			;; Set up continue so that the computation will continue
+			;; at after-fact when the subroutine returns.
+			(save continue)
+			(save n)
+			(assign n (op -) (reg n) (const 1))
+			(assign continue (label after-fact))
+			(goto (label fact-loop))
+		  after-fact
+			(restore n)
+			(restore continue)
+			(assign val (op *) (reg n) (reg val)) ;val now contains n(n - 1)!
+			(goto (reg continue)) ;return to caller
+		  base-case
+			(assign val (const 1)) (goto (reg continue)) ;base case: 1! = 1
+		  fact-done)))
 
-(set-register-contents! gcd-machine 'a 206)
-(set-register-contents! gcd-machine 'b 40)
-(start gcd-machine)
-(get-register-contents gcd-machine 'a)
+(set-register-contents! fact-machine 'n 20)
+(get-inst-count fact-machine)
+(start fact-machine)
+(reset-inst-count fact-machine)
+(get-inst-count fact-machine)
+(get-register-contents fact-machine 'val)
