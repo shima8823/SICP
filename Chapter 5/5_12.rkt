@@ -1,5 +1,20 @@
 #lang sicp
 
+; util ai code
+(define (insert element sorted-list)
+  (cond
+    [(null? sorted-list) (list element)] ; ソート済みリストが空なら要素をそのまま追加
+    [(string<? (symbol->string element) (symbol->string (car sorted-list)))
+     (cons element sorted-list)]         ; 要素が先頭より小さければ先頭に挿入
+    [else (cons (car sorted-list)        ; そうでなければ先頭を維持し再帰
+                (insert element (cdr sorted-list)))]))
+
+(define (insertion-sort lst)
+  (if (null? lst)
+      '()                               ; 入力リストが空なら空リストを返す
+      (insert (car lst) (insertion-sort (cdr lst))))) ; 1つ目をソート済みに挿入
+;
+
 (define (make-machine register-names ops controller-text)
 	(let ((machine (make-new-machine)))
 		(for-each
@@ -9,6 +24,7 @@
 		((machine 'install-operations) ops)
 		((machine 'install-instruction-sequence)
 		 (assemble controller-text machine))
+		((machine 'sort-insts))
 		machine))
 
 (define (make-register name)
@@ -48,7 +64,8 @@
 	(let ((pc (make-register 'pc))
 		  (flag (make-register 'flag))
 		  (stack (make-stack))
-		  (the-instruction-sequence '()))
+		  (the-instruction-sequence '())
+		  (unique-insts '()))
 		(let ((the-ops (list (list 'initialize-stack (lambda () (stack 'initialize)))))
 			  (register-table (list (list 'pc pc) (list 'flag flag))))
 			(define (allocate-register name)
@@ -69,6 +86,15 @@
 						(begin
 							((instruction-execution-proc (car insts)))
 							(execute)))))
+			(define (set-unique-insts inst)
+				(if (not (memq inst unique-insts))
+					(set! unique-insts
+						(cons inst unique-insts)))
+				'done-set-unique-inst)
+			(define (sort-insts)
+				(set! unique-insts
+					(insertion-sort unique-insts)) ; racketの関数はsicp言語だと使えない。
+				'done)
 			(define (dispatch message)
 				(cond ((eq? message 'start)
 						(set-contents! pc the-instruction-sequence)
@@ -83,11 +109,15 @@
 							(set! the-ops (append the-ops ops))))
 					  ((eq? message 'stack) stack)
 					  ((eq? message 'operations) the-ops)
+					  ((eq? message 'set-unique-insts) set-unique-insts)
+					  ((eq? message 'get-unique-insts) unique-insts)
+					  ((eq? message 'sort-insts) sort-insts)
 					  (else (error " Unknown request : MACHINE " message))))
 			dispatch)))
 
 
 (define (start machine) (machine 'start))
+(define (get-insts machine) (machine 'get-unique-insts))
 (define (get-register-contents machine register-name)
 	(get-contents (get-register machine register-name)))
 (define (set-register-contents! machine register-name value)
@@ -99,15 +129,17 @@
 
 (define (assemble controller-text machine)
 	(extract-labels
+		machine
 		controller-text
 		(lambda (insts labels)
 			(update-insts! insts labels machine)
 			insts)))
 
-(define (extract-labels text receive)
+(define (extract-labels machine text receive)
 	(if (null? text)
 		(receive '() '())
 		(extract-labels
+			machine
 			(cdr text)
 			(lambda (insts labels)
 				(let ((next-inst (car text)))
@@ -115,9 +147,11 @@
 						(receive
 							insts
 							(cons (make-label-entry next-inst insts) labels))
-						(receive
-							(cons (make-instruction next-inst) insts)
-							labels)))))))
+						(begin
+							((machine 'set-unique-insts) (car next-inst))
+							(receive
+								(cons (make-instruction next-inst) insts)
+								labels))))))))
 
 (define (update-insts! insts labels machine)
 	(let ((pc (get-register machine 'pc))
@@ -349,5 +383,31 @@
 		)))
 
 (set-register-contents! fib-machine 'n 6)
+(get-insts fib-machine)
 (start fib-machine)
 (get-register-contents fib-machine 'val)
+
+
+; 階乗マシン
+; (controller
+; (assign continue (label fact-done)) ;set up final return address
+; fact-loop
+; (test (op =) (reg n) (const 1))
+; (branch (label base-case))
+; ;; Set up for the recursive call by saving n and continue.
+; ;; Set up continue so that the computation will continue
+; ;; at after-fact when the subroutine returns.
+; (save continue)
+; (save n)
+; (assign n (op -) (reg n) (const 1))
+; (assign continue (label after-fact))
+; (goto (label fact-loop))
+; after-fact
+; (restore n)
+; (restore continue)
+; (assign val (op *) (reg n) (reg val)) ;val now contains n(n - 1)!
+; (goto (reg continue)) ;return to caller
+; base-case
+; (assign val (const 1)) (goto (reg continue)) ;base case: 1! = 1
+; ;return to caller
+; fact-done)
