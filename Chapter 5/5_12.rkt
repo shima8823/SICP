@@ -65,7 +65,10 @@
 		  (flag (make-register 'flag))
 		  (stack (make-stack))
 		  (the-instruction-sequence '())
-		  (unique-insts '()))
+		  (unique-insts '())
+		  (unique-entrypoints '())
+		  (unique-regs-save-restore '())
+		  (unique-regs-assigned '()))
 		(let ((the-ops (list (list 'initialize-stack (lambda () (stack 'initialize)))))
 			  (register-table (list (list 'pc pc) (list 'flag flag))))
 			(define (allocate-register name)
@@ -95,6 +98,25 @@
 				(set! unique-insts
 					(insertion-sort unique-insts)) ; racketの関数はsicp言語だと使えない。
 				'done)
+			(define (set-unique-entrypoint entrypoint)
+				(let ((entrypoint-name (cadr entrypoint)))
+					(if (and (eq? (car entrypoint) 'reg)
+							(not (memq entrypoint-name unique-entrypoints)))
+						(set! unique-entrypoints
+							(cons entrypoint-name unique-entrypoints))))
+				'done-set-unique-entrypoint)
+			(define (set-unique-reg-save-restore reg)
+				(if (not (memq reg unique-regs-save-restore))
+					(set! unique-regs-save-restore
+						(cons reg unique-regs-save-restore)))
+				'done-set-unique-reg-save-restore)
+			(define (set-unique-reg-assigned reg original)
+				(let ((originals (assoc reg unique-regs-assigned)))
+					(if originals
+						(set-cdr! originals (cons original (cdr originals)))
+						(set! unique-regs-assigned
+							(cons (list reg original) unique-regs-assigned))))
+				'done-set-unique-reg-assigned)
 			(define (dispatch message)
 				(cond ((eq? message 'start)
 						(set-contents! pc the-instruction-sequence)
@@ -109,8 +131,16 @@
 							(set! the-ops (append the-ops ops))))
 					  ((eq? message 'stack) stack)
 					  ((eq? message 'operations) the-ops)
+					; set inst information
 					  ((eq? message 'set-unique-insts) set-unique-insts)
+					  ((eq? message 'set-unique-entrypoint) set-unique-entrypoint)
+					  ((eq? message 'set-unique-reg-save-restore) set-unique-reg-save-restore)
+					  ((eq? message 'set-unique-reg-assigned) set-unique-reg-assigned)
+					; get inst information
 					  ((eq? message 'get-unique-insts) unique-insts)
+					  ((eq? message 'get-unique-entrypoint) unique-entrypoints)
+					  ((eq? message 'get-unique-reg-save-restore) unique-regs-save-restore)
+					  ((eq? message 'get-unique-reg-assigned) unique-regs-assigned)
 					  ((eq? message 'sort-insts) sort-insts)
 					  (else (error " Unknown request : MACHINE " message))))
 			dispatch)))
@@ -118,6 +148,9 @@
 
 (define (start machine) (machine 'start))
 (define (get-insts machine) (machine 'get-unique-insts))
+(define (get-entrypoints machine) (machine 'get-unique-entrypoint))
+(define (get-regs-stacked machine) (machine 'get-unique-reg-save-restore))
+(define (get-regs-assigned machine) (machine 'get-unique-reg-assigned))
 (define (get-register-contents machine register-name)
 	(get-contents (get-register machine register-name)))
 (define (set-register-contents! machine register-name value)
@@ -148,7 +181,15 @@
 							insts
 							(cons (make-label-entry next-inst insts) labels))
 						(begin
-							((machine 'set-unique-insts) (car next-inst))
+							(let ((inst (car next-inst)))
+								((machine 'set-unique-insts) (car next-inst))
+								(cond 
+									((eq? inst 'goto)
+										((machine 'set-unique-entrypoint) (cadr next-inst)))
+									((or (eq? inst 'save) (eq? inst 'restore))
+										((machine 'set-unique-reg-save-restore) (cadr next-inst)))
+									((eq? inst 'assign)
+										((machine 'set-unique-reg-assigned) (cadr next-inst) (cddr next-inst)))))
 							(receive
 								(cons (make-instruction next-inst) insts)
 								labels))))))))
@@ -384,6 +425,9 @@
 
 (set-register-contents! fib-machine 'n 6)
 (get-insts fib-machine)
+(get-entrypoints fib-machine)
+(get-regs-stacked fib-machine)
+(get-regs-assigned fib-machine)
 (start fib-machine)
 (get-register-contents fib-machine 'val)
 
