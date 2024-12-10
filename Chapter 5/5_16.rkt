@@ -67,7 +67,8 @@
 	(let ((pc (make-register 'pc))
 		  (flag (make-register 'flag))
 		  (stack (make-stack))
-		  (the-instruction-sequence '()))
+		  (the-instruction-sequence '())
+		  (trace-on? #f))
 		(let ((the-ops
 				(list (list 'initialize-stack
 						(lambda () (stack 'initialize)))
@@ -91,6 +92,8 @@
 						'done
 						(begin
 							((instruction-execution-proc (car insts)))
+							(if trace-on?
+								(begin (newline) (display (caar insts))))
 							(execute)))))
 			(define (dispatch message)
 				(cond ((eq? message 'start)
@@ -106,11 +109,15 @@
 							(set! the-ops (append the-ops ops))))
 					  ((eq? message 'stack) stack)
 					  ((eq? message 'operations) the-ops)
+					  ((eq? message 'trace-on) (set! trace-on? #t))
+					  ((eq? message 'trace-off) (set! trace-on? #f))
 					  (else (error " Unknown request : MACHINE " message))))
 			dispatch)))
 
 
 (define (start machine) (machine 'start))
+(define (trace-on machine) (machine 'trace-on))
+(define (trace-off machine) (machine 'trace-off))
 (define (get-register-contents machine register-name)
 	(get-contents (get-register machine register-name)))
 (define (set-register-contents! machine register-name value)
@@ -329,21 +336,51 @@
 	(if (pair? exp)
 		(eq? (car exp) tag)
 		false))
-
-(define gcd-machine
+(define fib-machine
 	(make-machine
-		'(a b t)
-		(list (list 'rem remainder) (list '= =))
-		'(test-b
-			(test (op =) (reg b) (const 0))
-			(branch (label gcd-done))
-			(assign t (op rem) (reg a) (reg b))
-			(assign a (reg b))
-			(assign b (reg t))
-			(goto (label test-b))
-		gcd-done)))
+		'(n val continue)
+		(list
+			(list '< <)
+			(list '- -)
+			(list '+ +))
+		'((assign continue (label fib-done))
+		  fib-loop
+			(test (op <) (reg n) (const 2))
+			(branch (label immediate-answer))
+			;; Fib(n−1) を求める準備
+			(save continue)
+			(assign continue (label afterfib-n-1))
+			(save n) ; n の古い値を保存
+			(assign n (op -) (reg n) (const 1)) ; n を n-1 で上書き
+			(goto (label fib-loop)) ; 再帰呼び出しの実⾏
+		  afterfib-n-1 ; リターン時に Fib(n−1) は val に⼊っている
+			(restore n)
+			; (restore continue)
+			;; Fib(n−2) を求める準備
+			(assign n (op -) (reg n) (const 2))
+			; (save continue)
+			(assign continue (label afterfib-n-2))
+			(save val) ; Fib(n−1) を保存
+			(goto (label fib-loop))
+		  afterfib-n-2 ; リターン時に Fib(n−2) は val に⼊っている
+			(assign n (reg val)) ; n には Fib(n−2) が⼊る
+			(restore val) ; valには Fib(n−1) が⼊る
+			(restore continue) 
+			(assign val ; Fib(n−1) + Fib(n−2)
+				(op +) (reg val) (reg n))
+			(goto (reg continue)) ; 呼び出し元に戻る、答えはval の中
+		  immediate-answer
+			(assign val (reg n))
+			(goto (reg continue))
+		  fib-done
+		)))
 
-(set-register-contents! gcd-machine 'a 206)
-(set-register-contents! gcd-machine 'b 40)
-(start gcd-machine)
-(get-register-contents gcd-machine 'a)
+(set-register-contents! fib-machine 'n 6)
+(trace-on fib-machine)
+(start fib-machine)
+(get-register-contents fib-machine 'val)
+
+(set-register-contents! fib-machine 'n 6)
+(trace-off fib-machine)
+(start fib-machine)
+(get-register-contents fib-machine 'val)
