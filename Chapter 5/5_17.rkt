@@ -1,3 +1,5 @@
+; labelの時だけ、カウントしないということが思いつかなかった。
+
 #lang sicp
 
 (define (make-machine register-names ops controller-text)
@@ -92,10 +94,12 @@
 					(if (null? insts)
 						'done
 						(begin
-							(set! instruction-counter (+ 1 instruction-counter))
 							((instruction-execution-proc (car insts)))
-							(if trace-on?
-								(begin (newline) (display (caar insts))))
+							(if (not (eq? (car (car (car insts))) 'label))
+								(begin
+									(set! instruction-counter (+ 1 instruction-counter))
+									(if trace-on?
+										(begin (newline) (display (caar insts))))))
 							(execute)))))
 			(define (display-instruction-counter)
 				(display "Execute instruction count: ")
@@ -153,9 +157,10 @@
 			(lambda (insts labels)
 				(let ((next-inst (car text)))
 					(if (symbol? next-inst)
-						(receive
-							insts
-							(cons (make-label-entry next-inst insts) labels))
+						(let ((insts (cons (make-instruction (list 'label next-inst)) insts)))
+							(receive
+								insts
+								(cons (make-label-entry next-inst insts) labels)))
 						(receive
 							(cons (make-instruction next-inst) insts)
 							labels)))))))
@@ -205,6 +210,8 @@
 			(make-restore inst machine stack pc))
 		  ((eq? (car inst) 'perform)
 			(make-perform inst machine labels ops pc))
+		  ((eq? (car inst) 'label)
+			(make-label inst pc))
 		  (else
 			(error "Unknown instruction type : ASSEMBLE " inst))))
 
@@ -300,6 +307,13 @@
 			(error "Bad PERFORM instruction : ASSEMBLE " inst))))
 (define (perform-action inst) (cdr inst))
 
+(define (make-label inst pc)
+	(lambda ()
+		(newline)
+		(display (cadr inst))
+		(display ":")
+		(advance-pc pc)))
+
 (define (make-primitive-exp exp machine labels)
 	(cond
 		((constant-exp? exp)
@@ -359,9 +373,6 @@
 		  fact-loop
 			(test (op =) (reg n) (const 1))
 			(branch (label base-case))
-			;; Set up for the recursive call by saving n and continue.
-			;; Set up continue so that the computation will continue
-			;; at after-fact when the subroutine returns.
 			(save continue)
 			(save n)
 			(assign n (op -) (reg n) (const 1))
@@ -384,6 +395,5 @@
 (start fact-machine)
 (newline)
 
-(reset-inst-count fact-machine)
 (get-inst-count fact-machine)
 (get-register-contents fact-machine 'val)
