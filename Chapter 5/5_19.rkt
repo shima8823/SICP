@@ -494,7 +494,7 @@
 (newline)
 (trace-off fact-machine)
 (cancel-breakpoint fact-machine 'fact-loop 6)
-; (cancel-all-breakpoint fact-machine)
+; (cancel-all-breakpoint fact-machine) (set breakpoints '())
 (set-register-contents! fact-machine 'n 5)
 (start fact-machine)
 (newline)
