@@ -1,5 +1,12 @@
 #lang sicp
 
+(define (filter predicate sequence)
+	(cond ((null? sequence) nil)
+		  ((predicate (car sequence))
+			(cons (car sequence)
+				(filter predicate (cdr sequence))))
+		  (else (filter predicate (cdr sequence)))))
+
 (define (make-machine register-names ops controller-text)
 	(let ((machine (make-new-machine)))
 		(for-each
@@ -7,6 +14,7 @@
 				((machine 'allocate-register) register-name))
 			register-names)
 		((machine 'install-operations) ops)
+		((machine 'save-machine-info) machine controller-text)
 		((machine 'install-instruction-sequence)
 		 (assemble controller-text machine))
 		machine))
@@ -84,7 +92,10 @@
 		  (the-instruction-sequence '())
 		  (trace-on? #f)
 		  (reg-trace-on? #f)
-		  (instruction-counter 0))
+		  (instruction-counter 0)
+		  (breakpoints '())
+		  (controller-text '())
+		  (machine #f))
 		(let ((the-ops
 				(list (list 'initialize-stack
 						(lambda () (stack 'initialize)))
@@ -108,16 +119,30 @@
 						'done
 						(begin
 							((instruction-execution-proc (car insts)))
-							(if (not (eq? (car (car (car insts))) 'label))
+							; if insts is breakpoint then stop
+							(if (not (eq? (caaar insts) 'breakpoint))
 								(begin
-									(set! instruction-counter (+ 1 instruction-counter))
-									(if trace-on?
-										(begin (newline) (display (caar insts))))))
-							(execute)))))
+									(if (not (eq? (caaar insts) 'label))
+										(begin
+											(set! instruction-counter (+ 1 instruction-counter))
+											(if trace-on?
+												(begin (newline) (display (caar insts))))))
+									(execute)))))))
 			(define (display-instruction-counter)
 				(display "Execute instruction count: ")
 				(display instruction-counter)
 				(newline))
+			(define (set-breakpoint label count)
+				(set! breakpoints (cons (list label count) breakpoints))
+				(set! the-instruction-sequence (assemble controller-text machine))
+				'breakpoint-set)
+			(define (cancel-breakpoint label count)
+				(set! breakpoints
+					(filter
+						(lambda (b) (not (and (eq? (car b) label) (= (cadr b) count))))
+						breakpoints))
+				(set! the-instruction-sequence (assemble controller-text machine))
+				'breakpoint-canceled)
 			(define (dispatch message)
 				(cond ((eq? message 'start)
 						(set-contents! pc the-instruction-sequence reg-trace-on?)
@@ -140,11 +165,17 @@
 					  ((eq? message 'reg-trace-on) (set! reg-trace-on? #t))
 					  ((eq? message 'reg-trace-off) (set! reg-trace-on? #f))
 					  ((eq? message 'get-reg-trace-on) reg-trace-on?)
+					  ((eq? message 'set-breakpoint) set-breakpoint)
+					  ((eq? message 'get-breakpoints) breakpoints)
+					  ((eq? message 'proceed-machine) (execute))
+					  ((eq? message 'cancel-breakpoint) cancel-breakpoint)
+					  ((eq? message 'save-machine-info) (lambda (m text) (set! controller-text text) (set! machine m)))
 					  (else (error " Unknown request : MACHINE " message))))
 			dispatch)))
 
 
 (define (start machine) (machine 'start))
+(define (proceed-machine machine) (machine 'proceed-machine))
 (define (trace-on machine) (machine 'trace-on))
 (define (trace-off machine) (machine 'trace-off))
 (define (reg-trace-on machine) (machine 'reg-trace-on))
@@ -157,31 +188,59 @@
 	(set-contents! (get-register machine register-name) value (machine 'get-reg-trace-on))
 	'done)
 
+(define (set-breakpoint machine label count)
+	((machine 'set-breakpoint) label count))
+(define (cancel-breakpoint machine label count)
+	((machine 'cancel-breakpoint) label count))
+
 (define (get-register machine reg-name)
 	((machine 'get-register) reg-name))
 
 (define (assemble controller-text machine)
 	(extract-labels
+		machine
 		controller-text
+		'*unassigned*
+		1
 		(lambda (insts labels)
 			(update-insts! insts labels machine)
 			insts)))
 
-(define (extract-labels text receive)
+(define (extract-labels machine text latest-label inst-count-from-label receive)
 	(if (null? text)
 		(receive '() '())
-		(extract-labels
-			(cdr text)
-			(lambda (insts labels)
-				(let ((next-inst (car text)))
+		(let ((next-inst (car text)))
+			; (newline)
+			; (display "latest-label: ") (display latest-label) (newline)
+			; (display "inst-count-from-label: ") (display inst-count-from-label) (newline)
+			; (display "next-inst: ") (display next-inst) (newline)
+			; (newline)
+			(extract-labels
+				machine
+				(cdr text)
+				(if (symbol? next-inst) next-inst latest-label)
+				(if (symbol? next-inst) 1 (+ 1 inst-count-from-label))
+				(lambda (insts labels)
 					(if (symbol? next-inst)
 						(let ((insts (cons (make-instruction (list 'label next-inst)) insts)))
 							(receive
 								insts
 								(cons (make-label-entry next-inst insts) labels)))
-						(receive
-							(cons (make-instruction next-inst) insts)
-							labels)))))))
+						(let ((insts
+							(if (breakpoint? machine latest-label inst-count-from-label)
+								(cons (make-instruction (list 'breakpoint)) insts)
+								insts)))
+							(receive
+								(cons (make-instruction next-inst) insts)
+								labels))))))))
+
+(define (breakpoint? machine label count)
+	(let ((breakpoints (machine 'get-breakpoints)))
+		; (display "breakpoints: ") (display breakpoints) (newline)
+		(not (null?
+			(filter
+				(lambda (b) (and (eq? (car b) label) (= (cadr b) count)))
+				breakpoints)))))
 
 (define (update-insts! insts labels machine)
 	(let ((pc (get-register machine 'pc))
@@ -230,6 +289,8 @@
 			(make-perform inst machine labels ops pc))
 		  ((eq? (car inst) 'label)
 			(make-label inst pc))
+		  ((eq? (car inst) 'breakpoint)
+			(make-breakpoint inst machine labels ops pc))
 		  (else
 			(error "Unknown instruction type : ASSEMBLE " inst))))
 
@@ -332,6 +393,12 @@
 		(display ":")
 		(advance-pc pc)))
 
+(define (make-breakpoint inst machine labels operations pc)
+	(lambda ()
+		(newline)
+		(display "make-breakpoint")
+		(advance-pc pc)))
+
 (define (make-primitive-exp exp machine labels)
 	(cond
 		((constant-exp? exp)
@@ -402,17 +469,33 @@
 			(assign val (op *) (reg n) (reg val)) ;val now contains n(n - 1)!
 			(goto (reg continue)) ;return to caller
 		  base-case
-			(assign val (const 1)) (goto (reg continue)) ;base case: 1! = 1
+			(assign val (const 1))
+			(goto (reg continue)) ;base case: 1! = 1
 		  fact-done)))
 
-(set-register-contents! fact-machine 'n 20)
-(get-inst-count fact-machine)
+(set-register-contents! fact-machine 'n 5)
+(set-breakpoint fact-machine 'fact-loop 6)
 
 (newline)
 (trace-on fact-machine)
-(reg-trace-on fact-machine)
+; (reg-trace-on fact-machine)
 (start fact-machine)
+
+(get-register-contents fact-machine 'n)
+(set-register-contents! fact-machine 'n 1)
+(get-register-contents fact-machine 'n)
+(proceed-machine fact-machine)
+
 (newline)
 
-(get-inst-count fact-machine)
+(get-register-contents fact-machine 'val)
+(display "first end")
+(newline)
+(newline)
+(trace-off fact-machine)
+(cancel-breakpoint fact-machine 'fact-loop 6)
+; (cancel-all-breakpoint fact-machine)
+(set-register-contents! fact-machine 'n 5)
+(start fact-machine)
+(newline)
 (get-register-contents fact-machine 'val)
