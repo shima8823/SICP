@@ -1,3 +1,14 @@
+#|
+
+https://sicp.iijlab.net/solution/ex5.2.html#ex5.19
+この答えが一番綺麗
+方針
+set-breakpointが肝
+set-breakpointでbreakpointsにlabelとcountを追加し、
+もう一回assembleでbreakpointを追加したものをthe-instruction-sequenceにセットする。
+
+|#
+
 #lang sicp
 
 (define (filter predicate sequence)
