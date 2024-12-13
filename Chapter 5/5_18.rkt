@@ -1,3 +1,5 @@
+; 各registerでtraceを有効にしたほうが楽
+
 #lang sicp
 
 (define (make-machine register-names ops controller-text)
@@ -16,13 +18,27 @@
 		(define (dispatch message)
 			(cond ((eq? message 'get) contents)
 				  ((eq? message 'set)
-					(lambda (value) (set! contents value)))
+					(lambda (value trace-on?)
+						(if (and trace-on?
+								 (not (eq? name 'pc))
+								 (not (eq? contents '*unassigned*)))
+							(begin
+								(newline)
+								(display "Register	: ") (display name) (newline)
+								(if (eq? name 'continue)
+									(begin
+										(display "old contents	: ") (display (car (car contents))) (newline)
+										(display "new contents	: ") (display (car (car value))) (newline))
+									(begin
+										(display "old contents	: ") (display contents) (newline)
+										(display "new contents	: ") (display value) (newline)))))
+						(set! contents value)))
 				  (else
 					(error " Unknown request : REGISTER " message))))
 		dispatch))
 
 (define (get-contents register) (register 'get))
-(define (set-contents! register value) ((register 'set) value))
+(define (set-contents! register value trace-on?) ((register 'set) value trace-on?))
 
 (define (make-stack)
 	(let ((s '())
@@ -69,6 +85,7 @@
 		  (stack (make-stack))
 		  (the-instruction-sequence '())
 		  (trace-on? #f)
+		  (reg-trace-on? #f)
 		  (instruction-counter 0))
 		(let ((the-ops
 				(list (list 'initialize-stack
@@ -105,7 +122,7 @@
 				(newline))
 			(define (dispatch message)
 				(cond ((eq? message 'start)
-						(set-contents! pc the-instruction-sequence)
+						(set-contents! pc the-instruction-sequence reg-trace-on?)
 						(execute))
 					  ((eq? message 'install-instruction-sequence)
 						(lambda (seq)
@@ -122,6 +139,9 @@
 					  ((eq? message 'operations) the-ops)
 					  ((eq? message 'trace-on) (set! trace-on? #t))
 					  ((eq? message 'trace-off) (set! trace-on? #f))
+					  ((eq? message 'reg-trace-on) (set! reg-trace-on? #t))
+					  ((eq? message 'reg-trace-off) (set! reg-trace-on? #f))
+					  ((eq? message 'get-reg-trace-on) reg-trace-on?)
 					  (else (error " Unknown request : MACHINE " message))))
 			dispatch)))
 
@@ -129,12 +149,14 @@
 (define (start machine) (machine 'start))
 (define (trace-on machine) (machine 'trace-on))
 (define (trace-off machine) (machine 'trace-off))
+(define (reg-trace-on machine) (machine 'reg-trace-on))
+(define (reg-trace-off machine) (machine 'reg-trace-off))
 (define (get-inst-count machine) (machine 'get-instruction-counter))
 (define (reset-inst-count machine) (machine 'reset-instruction-counter))
 (define (get-register-contents machine register-name)
 	(get-contents (get-register machine register-name)))
 (define (set-register-contents! machine register-name value)
-	(set-contents! (get-register machine register-name) value)
+	(set-contents! (get-register machine register-name) value (machine 'get-reg-trace-on))
 	'done)
 
 (define (get-register machine reg-name)
@@ -223,7 +245,7 @@
 				(make-primitive-exp
 					(car value-exp) machine labels))))
 			(lambda () ; assign に対する実⾏⼿続き
-				(set-contents! target (value-proc))
+				(set-contents! target (value-proc) (machine 'get-reg-trace-on))
 				(advance-pc pc)))))
 
 (define (assign-reg-name assign-instruction)
@@ -232,7 +254,7 @@
 	(cddr assign-instruction))
 
 (define (advance-pc pc)
-	(set-contents! pc (cdr (get-contents pc))))
+	(set-contents! pc (cdr (get-contents pc)) #f))
 
 (define (make-test inst machine labels operations flag pc)
 	(let ((condition (test-condition inst)))
@@ -241,7 +263,7 @@
 				(make-operation-exp
 					condition machine labels operations)))
 				(lambda ()
-					(set-contents! flag (condition-proc))
+					(set-contents! flag (condition-proc) (machine 'get-reg-trace-on))
 					(advance-pc pc)))
 			(error "Bad TEST instruction : ASSEMBLE " inst))))
 (define (test-condition test-instruction)
@@ -256,7 +278,7 @@
 					(label-exp-label dest))))
 				(lambda ()
 					(if (get-contents flag)
-						(set-contents! pc insts)
+						(set-contents! pc insts #f)
 						(advance-pc pc))))
 			(error "Bad BRANCH instruction : ASSEMBLE " inst))))
 (define (branch-dest branch-instruction)
@@ -269,13 +291,13 @@
 				(let ((insts (lookup-label
 					labels
 					(label-exp-label dest))))
-					(lambda () (set-contents! pc insts))))
+					(lambda () (set-contents! pc insts #f))))
 			((register-exp? dest)
 				(let ((reg (get-register
 					machine
 					(register-exp-reg dest))))
 					(lambda ()
-						(set-contents! pc (get-contents reg)))))
+						(set-contents! pc (get-contents reg) #f))))
 			(else (error "Bad GOTO instruction : ASSEMBLE " inst)))))
 (define (goto-dest goto-instruction)
 	(cadr goto-instruction))
@@ -290,7 +312,7 @@
 	(let ((reg (get-register machine
 		(stack-inst-reg-name inst))))
 		(lambda ()
-			(set-contents! reg (pop stack))
+			(set-contents! reg (pop stack) (machine 'get-reg-trace-on))
 			(advance-pc pc))))
 (define (stack-inst-reg-name stack-instruction)
 	(cadr stack-instruction))
@@ -390,6 +412,7 @@
 
 (newline)
 (trace-on fact-machine)
+(reg-trace-on fact-machine)
 (start fact-machine)
 (newline)
 
