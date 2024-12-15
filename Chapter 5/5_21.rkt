@@ -329,3 +329,105 @@
 	(if (pair? exp)
 		(eq? (car exp) tag)
 		false))
+
+#|
+.a
+(define (count-leaves tree)
+	(cond ((null? tree) 0)
+		  ((not (pair? tree)) 1)
+		  (else (+ (count-leaves (car tree))
+				   (count-leaves (cdr tree))))))
+|#
+
+(define count-leaves-machine
+	(make-machine
+		'(val tree continue)
+		(list (list 'null? null?)
+			(list 'pair? pair?)
+			(list 'cdr cdr)
+			(list 'car car)
+			(list '+ +))
+		'((assign continue (label count-leaves-done))
+			count-loop
+			(test (op null?) (reg tree))
+			(branch (label count-leaves-null))
+			(test (op pair?) (reg tree))
+			(branch (label count-leaves-pair))
+			(assign val (const 1))
+			(goto (reg continue))
+			aftercount-n-1
+			(assign continue (label aftercount-n-2))
+
+			  (restore tree)
+			; (assign tree (op vector-ref) (reg the-cars) (reg the-stack))
+			; (assign the-stack (op vector-ref) (reg the-cdrs) (reg the-stack))
+
+			(assign tree (op cdr) (reg tree))
+			; (assign tree (op vector-ref) (reg the-cdrs) (reg tree))
+
+			  (save val)
+			;   (assign the-stack (op cons) (reg val) (reg the-stack))
+			; (perform
+			; 	(op vector-set!) (reg the-cars) (reg free) (reg val))
+			; (perform
+			; 	(op vector-set!) (reg the-cdrs) (reg free) (reg the-stack))
+			; (assign the-stack (reg free))
+			; (assign free (op +) (reg free) (const 1))
+
+			(goto (label count-loop))
+			aftercount-n-2
+			  (restore tree)
+			; (assign tree (op vector-ref) (reg the-cars) (reg the-stack))
+			; (assign the-stack (op vector-ref) (reg the-cdrs) (reg the-stack))
+
+			(assign val (op +) (reg val) (reg tree))
+
+			  (restore continue)
+			; (assign continue (op vector-ref) (reg the-cars) (reg the-stack))
+			; (assign the-stack (op vector-ref) (reg the-cdrs) (reg the-stack))
+
+			(goto (reg continue))
+			count-leaves-null
+			(assign val (const 0))
+			(goto (reg continue))
+			count-leaves-pair
+			  (save continue)
+			;   (assign the-stack (op cons) (reg continue) (reg the-stack))
+			; (perform
+			; 	(op vector-set!) (reg the-cars) (reg free) (reg continue))
+			; (perform
+			; 	(op vector-set!) (reg the-cdrs) (reg free) (reg the-stack))
+			; (assign the-stack (reg free))
+			; (assign free (op +) (reg free) (const 1))
+
+			(assign continue (label aftercount-n-1))
+
+			  (save tree)
+			;   (assign the-stack (op cons) (reg tree) (reg the-stack))
+			; (perform
+			; 	(op vector-set!) (reg the-cars) (reg free) (reg tree))
+			; (perform
+			; 	(op vector-set!) (reg the-cdrs) (reg free) (reg the-stack))
+			; (assign the-stack (reg free))
+			; (assign free (op +) (reg free) (const 1))
+
+			(assign tree (op car) (reg tree))
+			; (assign tree (op vector-ref) (reg the-cars) (reg tree))
+			(goto (label count-loop))
+		count-leaves-done)))
+
+(set-register-contents! count-leaves-machine 'tree '(1 2 (3 4 (6 7 8)) 5))
+(start count-leaves-machine)
+(get-register-contents count-leaves-machine 'val)
+
+
+; b
+
+; (define (count-leaves tree)
+; 	(define (count-iter tree n)
+; 		(cond ((null? tree) n)
+; 			  ((not (pair? tree)) (+ n 1))
+; 			  (else
+; 				(count-iter (cdr tree)
+; 					(count-iter (car tree) n)))))
+; 	(count-iter tree 0))
