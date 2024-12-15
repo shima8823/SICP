@@ -420,14 +420,52 @@
 (start count-leaves-machine)
 (get-register-contents count-leaves-machine 'val)
 
+#|
+.b
+(define (count-leaves tree)
+	(define (count-iter tree n)
+		(cond ((null? tree) n)
+			  ((not (pair? tree)) (+ n 1))
+			  (else
+				(count-iter (cdr tree)
+					(count-iter (car tree) n)))))
+	(count-iter tree 0))
+|#
 
-; b
+(define count-leaves-iter-machine
+	(make-machine
+		'(val tree n continue)
+		(list (list 'null? null?)
+			(list 'pair? pair?)
+			(list 'cdr cdr)
+			(list 'car car)
+			(list '+ +))
+			  '((assign continue (label count-leaves-done))
+				(assign n (const 0))
+			count-iter
+				(test (op null?) (reg tree))
+				(branch (label count-leaves-null))
+				(test (op pair?) (reg tree))
+				(branch (label count-leaves-pair))
+				(assign val (op +) (reg n) (const 1))
+				(goto (reg continue))
+			aftercount-n-1
+				(restore tree)
+				(restore continue)
+				(assign tree (op cdr) (reg tree))
+				(assign n (reg val))
+				(goto (label count-iter))
+			count-leaves-null
+				(assign val (reg n))
+				(goto (reg continue))
+			count-leaves-pair
+				(save continue)
+				(assign continue (label aftercount-n-1))
+				(save tree)
+				(assign tree (op car) (reg tree))
+				(goto (label count-iter))
+			count-leaves-done)))
 
-; (define (count-leaves tree)
-; 	(define (count-iter tree n)
-; 		(cond ((null? tree) n)
-; 			  ((not (pair? tree)) (+ n 1))
-; 			  (else
-; 				(count-iter (cdr tree)
-; 					(count-iter (car tree) n)))))
-; 	(count-iter tree 0))
+(set-register-contents! count-leaves-iter-machine 'tree '(1 2 (3 4 (6 7 8)) 5))
+(start count-leaves-iter-machine)
+(get-register-contents count-leaves-iter-machine 'val)
