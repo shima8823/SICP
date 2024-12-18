@@ -96,6 +96,16 @@
 					(sequence->exp (cond-actions first))
 					(expand-clauses rest))))))
 
+(define (let? exp) (tagged-list? exp 'let))
+(define (let-define-pairs exp) (cadr exp))
+(define (let-body exp) (cddr exp))
+(define (let->combination exp)
+	(cons
+		(make-lambda
+			(map car (let-define-pairs exp))
+			(let-body exp))
+		(map cadr (let-define-pairs exp))))
+
 (define (true? x) (not (eq? x false)))
 (define (false? x) (eq? x false))
 
