@@ -1,5 +1,11 @@
 #lang sicp
 
+(#%require "util_metacircular.rkt")
+
+; ########################
+; ### register machine ###
+; ########################
+
 (define (make-machine register-names ops controller-text)
 	(let ((machine (make-new-machine)))
 		(for-each
@@ -325,21 +331,84 @@
 			(cadr val)
 			(error " Unknown operation : ASSEMBLE " symbol))))
 
-(define (tagged-list? exp tag)
-	(if (pair? exp)
-		(eq? (car exp) tag)
-		false))
+; ############################
+; ### register machine end ###
+; ############################
 
+; operations
 (define (empty-arglist) '())
 (define (adjoin-arg arg arglist) (append arglist (list arg)))
 (define (last-operand? ops) (null? (cdr ops)))
+(define the-global-environment (setup-environment))
+(define (get-global-environment) the-global-environment)
+(define eceval-operations
+	(list
+		(list 'adjoin-arg adjoin-arg)
+		(list 'announce-output announce-output)
+		(list 'application? application?)
+		(list 'apply-primitive-procedure apply-primitive-procedure)
+		(list 'assignment-value assignment-value)
+		(list 'assignment-variable assignment-variable)
+		(list 'assignment? assignment?)
+		(list 'begin-actions begin-actions)
+		(list 'begin? begin?)
+		(list 'compound-procedure? compound-procedure?)
+		(list 'define-variable! define-variable!)
+		(list 'definition-value definition-value)
+		(list 'definition-variable definition-variable)
+		(list 'definition? definition?)
+		(list 'empty-arglist empty-arglist)
+		(list 'extend-environment extend-environment)
+		(list 'first-exp first-exp)
+		(list 'first-operand first-operand)
+		(list 'get-global-environment get-global-environment)
+		(list 'if-alternative if-alternative)
+		(list 'if-consequent if-consequent)
+		(list 'if-predicate if-predicate)
+		(list 'if? if?)
+		;(list 'initialize-stack initialize-stack)
+		(list 'lambda-body lambda-body)
+		(list 'lambda-parameters lambda-parameters)
+		(list 'lambda? lambda?)
+		(list 'last-exp? last-exp?)
+		(list 'last-operand? last-operand?)
+		(list 'lookup-variable-value lookup-variable-value)
+		(list 'make-procedure make-procedure)
+		(list 'no-operands? no-operands?)
+		(list 'operands operands)
+		(list 'operator operator)
+		(list 'primitive-procedure? primitive-procedure?)
+		;(list 'print-stack-statistics print-stack-statistics)
+		(list 'procedure-body procedure-body)
+		(list 'procedure-environment procedure-environment)
+		(list 'procedure-parameters procedure-parameters)
+		(list 'prompt-for-input prompt-for-input)
+		(list 'quoted? quoted?)
+		(list 'read read)
+		(list 'rest-exps rest-exps)
+		(list 'rest-operands rest-operands)
+		(list 'self-evaluating? self-evaluating?)
+		(list 'set-variable-value! set-variable-value!)
+		(list 'text-of-quotation text-of-quotation)
+		(list 'true? true?)
+		(list 'user-print user-print)
+		(list 'variable? variable?)
+	))
 
-(define evaluator-machine)
+
+(define eceval
 	(make-machine
 		'(exp env val continue proc argl unev)
-		(list
-		  (list ))
+		eceval-operations
 		'(
+read-eval-print-loop
+	(perform (op initialize-stack))
+	(perform
+		(op prompt-for-input) (const ";;; EC-Eval input :"))
+	(assign exp (op read))
+	(assign env (op get-global-environment))
+	(assign continue (label print-result))
+	(goto (label eval-dispatch))
 eval-dispatch
 	(test (op self-evaluating?) (reg exp))
 	(branch (label ev-self-eval))
@@ -500,5 +569,37 @@ ev-definition-1
 	(perform (op define-variable!) (reg unev) (reg val) (reg env))
 	(assign val (const ok))
 	(goto (reg continue))
-		)
-	)
+; 5.4.4
+print-result
+	(perform (op announce-output) (const ";;; EC-Eval value :"))
+	(perform (op user-print) (reg val))
+	(goto (label read-eval-print-loop))
+unknown-expression-type
+	(assign val (const unknown-expression-type-error))
+	(goto (label signal-error))
+unknown-procedure-type
+	(restore continue) ; (apply-dispatch の)スタックをクリアする
+	(assign val (const unknown-procedure-type-error))
+	(goto (label signal-error))
+signal-error
+	(perform (op user-print) (reg val))
+	(goto (label read-eval-print-loop))
+	)))
+
+(start eceval)
+
+#|
+;;; EC-Eval input:
+
+(define (append x y)
+	(if (null? x) y (cons (car x) (append (cdr x) y))))
+
+;;; EC-Eval value:
+; ok
+;;; EC-Eval input:
+
+(append '(a b c) '(d e f))
+
+;;; EC-Eval value:
+; (a b c d e f)
+|#
