@@ -343,6 +343,9 @@
 (define (get-global-environment) the-global-environment)
 (define eceval-operations
 	(list
+		(list 'car car)
+		(list 'cdr cdr)
+		(list 'null? null?)
 		(list 'adjoin-arg adjoin-arg)
 		(list 'announce-output announce-output)
 		(list 'application? application?)
@@ -394,7 +397,11 @@
 		(list 'user-print user-print)
 		(list 'variable? variable?)
 		(list 'cond? cond?)
-		(list 'cond->if cond->if)
+		; (list 'cond->if cond->if)
+		(list 'cond-clauses cond-clauses)
+		(list 'cond-else-clause? cond-else-clause?)
+		(list 'cond-predicate cond-predicate)
+		(list 'cond-actions cond-actions)
 		(list 'let? let?)
 		(list 'let-define-pairs let-define-pairs)
 		(list 'let-body let-body)
@@ -453,9 +460,42 @@ ev-lambda
 	(assign exp (op lambda-body) (reg exp))
 	(assign val (op make-procedure) (reg unev) (reg exp) (reg env))
 	(goto (reg continue))
+; 条件のリストを取るcarでdispatchで評価する。valの中身がtrueだったらev-sequenceにアクションを実行させる
+; expand-clausesのような流れ: https://sicp.iijlab.net/solution/ex5.4.html#ex5.24
 ev-cond
-	(assign exp (op cond->if) (reg exp))
+	(assign exp (op cond-clauses) (reg exp))
+ev-cond-loop
+	(test (op null?) (reg exp))
+	(branch (label ev-cond-null))
+	(save exp)
+	(assign exp (op car) (reg exp)) ; first
+	(test (op cond-else-clause?) (reg exp))
+	(branch (label cond-else-clause))
+	(assign exp (op cond-predicate) (reg exp)) ;predicate
+	(save continue)
+	(save env)
+	(assign continue (label ev-cond-did-predicate))
 	(goto (label eval-dispatch))
+cond-else-clause
+	(restore exp)
+	(goto (label ev-cond-true))
+ev-cond-did-predicate
+	(restore env)
+	(restore continue)
+	(restore exp)
+	(test (op true?) (reg val))
+	(branch (label ev-cond-true))
+	(assign exp (op cdr) (reg exp)) ; next cond predicate
+	(goto (label ev-cond-loop))
+ev-cond-true
+	(assign exp (op car) (reg exp)) ; first
+	(assign unev (op cond-actions) (reg exp)) ;action
+	(save continue)
+	(goto (label ev-sequence))
+ev-cond-null
+	(assign val (const ()))
+	(goto (reg continue))
+; 
 ev-let
 	(assign exp (op let->combination) (reg exp))
 	(goto (label eval-dispatch))
@@ -608,13 +648,10 @@ signal-error
 (define (cond-test x)
 	(cond ((= x 1) "x is one")
 		  ((= x 2) "x is two")
-		  (else "x is other")))
+		  (else (display "else state: ") "x is other")))
 
+(cond-test 1)
 (cond-test 2)
+(cond-test 3)
 
-(define (let-test)
-	(let ((x 2))
-		x))
-
-(let-test)
 |#
