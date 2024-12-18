@@ -393,6 +393,12 @@
 		(list 'true? true?)
 		(list 'user-print user-print)
 		(list 'variable? variable?)
+		(list 'cond? cond?)
+		(list 'cond->if cond->if)
+		(list 'let? let?)
+		(list 'let-define-pairs let-define-pairs)
+		(list 'let-body let-body)
+		(list 'let->combination let->combination)
 	))
 
 
@@ -426,6 +432,10 @@ eval-dispatch
 	(branch (label ev-lambda))
 	(test (op begin?) (reg exp))
 	(branch (label ev-begin))
+	(test (op cond?) (reg exp))
+	(branch (label ev-cond))
+	(test (op let?) (reg exp))
+	(branch (label ev-let))
 	(test (op application?) (reg exp))
 	(branch (label ev-application))
 	(goto (label unknown-expression-type))
@@ -443,6 +453,12 @@ ev-lambda
 	(assign exp (op lambda-body) (reg exp))
 	(assign val (op make-procedure) (reg unev) (reg exp) (reg env))
 	(goto (reg continue))
+ev-cond
+	(assign exp (op cond->if) (reg exp))
+	(goto (label eval-dispatch))
+ev-let
+	(assign exp (op let->combination) (reg exp))
+	(goto (label eval-dispatch))
 ev-application
 	(save continue)
 	(save env)
@@ -589,17 +605,16 @@ signal-error
 (start eceval)
 
 #|
-;;; EC-Eval input:
+(define (cond-test x)
+	(cond ((= x 1) "x is one")
+		  ((= x 2) "x is two")
+		  (else "x is other")))
 
-(define (append x y)
-	(if (null? x) y (cons (car x) (append (cdr x) y))))
+(cond-test 2)
 
-;;; EC-Eval value:
-; ok
-;;; EC-Eval input:
+(define (let-test)
+	(let ((x 2))
+		x))
 
-(append '(a b c) '(d e f))
-
-;;; EC-Eval value:
-; (a b c d e f)
+(let-test)
 |#
