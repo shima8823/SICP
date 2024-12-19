@@ -262,3 +262,23 @@
 			(procedure-body object)
 			'<procedure-env>))
 	(display object)))
+
+; #############################
+; ## utils delay-interpreter ##
+; #############################
+
+(define (delay-it exp env)
+	(list 'thunk exp env))
+(define (thunk? obj)
+	(tagged-list? obj 'thunk))
+(define (thunk-exp thunk) (cadr thunk))
+(define (thunk-env thunk) (caddr thunk))
+
+(define (list-of-delayed-args exps env)
+	(if (no-operands? exps)
+		'()
+		(cons (delay-it (first-operand exps)
+				env)
+			  (list-of-delayed-args (rest-operands exps)
+				env))))
+
