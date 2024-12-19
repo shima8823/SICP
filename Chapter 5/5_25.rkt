@@ -393,6 +393,15 @@
 		(list 'true? true?)
 		(list 'user-print user-print)
 		(list 'variable? variable?)
+		; utils delay-interpreter
+		; (list 'list-of-arg-values list-of-arg-values)
+		(list 'list-of-delayed-args list-of-delayed-args)
+		(list 'cons cons)
+		(list 'thunk? thunk?)
+		(list 'thunk-env thunk-env)
+		(list 'thunk-exp thunk-exp)
+
+		(list 'display display)
 	))
 
 
@@ -408,7 +417,8 @@ read-eval-print-loop
 	(assign exp (op read))
 	(assign env (op get-global-environment))
 	(assign continue (label print-result))
-	(goto (label eval-dispatch))
+	; (assign val (op actual-value) (reg exp) (reg env))
+	(goto (label actual-value))
 eval-dispatch
 	(test (op self-evaluating?) (reg exp))
 	(branch (label ev-self-eval))
@@ -450,12 +460,21 @@ ev-application
 	(save unev)
 	(assign exp (op operator) (reg exp))
 	(assign continue (label ev-appl-did-operator))
-	(goto (label eval-dispatch))
+	; (assign proc (op actual-value) (reg exp) (reg env))
+	(goto (label actual-value))
 ev-appl-did-operator
-	(restore unev) (restore env)
+	(restore unev)
+	(restore env)
+	(assign proc (reg val))
 	(assign argl (op empty-arglist))
-	(assign proc (reg val)) (test (op no-operands?) (reg unev))
-	(branch (label apply-dispatch))
+	(test (op primitive-procedure?) (reg proc))
+	(branch (label list-of-arg-values))
+	(test (op compound-procedure?) (reg proc))
+	(branch (label compound-apply))
+	(goto (label unknown-procedure-type))
+list-of-arg-values
+	(test (op no-operands?) (reg unev))
+	(branch (label primitive-apply))
 	(save proc)
 ev-appl-operand-loop
 	(save argl)
@@ -465,7 +484,7 @@ ev-appl-operand-loop
 	(save env)
 	(save unev)
 	(assign continue (label ev-appl-accumulate-arg))
-	(goto (label eval-dispatch))
+	(goto (label actual-value))
 ev-appl-accumulate-arg
 	(restore unev)
 	(restore env)
@@ -475,25 +494,23 @@ ev-appl-accumulate-arg
 	(goto (label ev-appl-operand-loop))
 ev-appl-last-arg
 	(assign continue (label ev-appl-accum-last-arg))
-	(goto (label eval-dispatch))
+	(goto (label actual-value))
 ev-appl-accum-last-arg
 	(restore argl)
 	(assign argl (op adjoin-arg) (reg val) (reg argl))
 	(restore proc)
-	(goto (label apply-dispatch))
-apply-dispatch
-	(test (op primitive-procedure?) (reg proc))
-	(branch (label primitive-apply))
-	(test (op compound-procedure?) (reg proc))
-	(branch (label compound-apply))
-	(goto (label unknown-procedure-type))
+	(goto (label primitive-apply))
 primitive-apply
+	; (perform (op display) (const "primitive-apply"))
 	(assign val (op apply-primitive-procedure)
 	(reg proc)
 	(reg argl))
 	(restore continue)
 	(goto (reg continue))
 compound-apply
+	; (perform (op display) (const "compound-apply"))
+	; (perform (op display) (reg unev))
+	(assign argl (op list-of-delayed-args) (reg unev) (reg env))
 	(assign unev (op procedure-parameters) (reg proc))
 	(assign env (op procedure-environment) (reg proc))
 	(assign env (op extend-environment)
@@ -524,9 +541,10 @@ ev-if
 	(save exp) ; 後で使うために式を保存
 	(save env)
 	(save continue)
-	(assign continue (label ev-if-decide))
 	(assign exp (op if-predicate) (reg exp))
-	(goto (label eval-dispatch)) ; 述語を評価
+	(assign continue (label ev-if-decide))
+	; (assign val (op actual-value) (reg exp) (reg env))
+	(goto (label actual-value))
 ev-if-decide
 	(restore continue)
 	(restore env)
@@ -584,6 +602,42 @@ unknown-procedure-type
 signal-error
 	(perform (op user-print) (reg val))
 	(goto (label read-eval-print-loop))
+actual-value
+	(save continue)
+	(assign continue (label eval-end))
+	(goto (label eval-dispatch))
+eval-end
+	(assign exp (reg val))
+	(restore continue)
+	(goto (label force-it))
+force-it
+	(test (op thunk?) (reg exp))
+	(branch (label force-thunk))
+	(assign val (reg exp))
+	(goto (reg continue))
+force-thunk
+	(assign env (op thunk-env) (reg exp))
+	(assign exp (op thunk-exp) (reg exp))
+	(goto (label actual-value))
 	)))
 
 (start eceval)
+
+#|
+
+変更箇所
+(application? exp)
+(apply procedure arguments env)
+(eval-if exp env)
+(driver-loop)
+
+DEBUG
+
+(define (try a b) (if (= a 0) 1 b))
+(try 0 (/ 1 0))
+
+(define count 0)
+(define (id x) (set! count (+ count 1)) x)
+(define w (id (id 10)))
+
+|#
