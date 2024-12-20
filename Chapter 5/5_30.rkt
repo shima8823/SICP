@@ -341,6 +341,27 @@
 (define (last-operand? ops) (null? (cdr ops)))
 (define the-global-environment (setup-environment))
 (define (get-global-environment) the-global-environment)
+
+; change
+(define (lookup-variable-value var env)
+	(define (env-loop env)
+		(define (scan vars vals)
+			(cond
+				((null? vars)
+					(env-loop (enclosing-environment env)))
+				((eq? var (car vars)) (list 'bound (car vals)))
+				(else (scan (cdr vars) (cdr vals)))))
+		(if (eq? env the-empty-environment)
+			(list 'unbound var)
+			(let ((frame (first-frame env)))
+				(scan
+					(frame-variables frame)
+					(frame-values frame)))))
+	(env-loop env))
+
+(define (unbound-variable? val) and (eq? (car val) 'unbound))
+(define (actual-value val) (cadr val))
+
 (define eceval-operations
 	(list
 		(list 'adjoin-arg adjoin-arg)
@@ -393,6 +414,11 @@
 		(list 'true? true?)
 		(list 'user-print user-print)
 		(list 'variable? variable?)
+		(list 'equal? equal?)
+		(list 'list list)
+		(list 'display display)
+		(list 'unbound-variable? unbound-variable?)
+		(list 'actual-value actual-value)
 	))
 
 
@@ -434,6 +460,11 @@ ev-self-eval
 	(goto (reg continue))
 ev-variable
 	(assign val (op lookup-variable-value) (reg exp) (reg env))
+	; (perform (op display) (reg exp))
+	(test (op unbound-variable?) (reg val))
+	; (perform (op display) (reg flag))
+	(branch (label unknown-variable))
+	(assign val (op actual-value) (reg val))
 	(goto (reg continue))
 ev-quoted
 	(assign val (op text-of-quotation) (reg exp))
@@ -582,6 +613,9 @@ unknown-procedure-type
 	(restore continue) ; (apply-dispatch の)スタックをクリアする
 	(assign val (const unknown-procedure-type-error))
 	(goto (label signal-error))
+unknown-variable
+	(assign val (const unknown-variable-error))
+	(goto (label signal-error))
 signal-error
 	(perform (op user-print) (reg val))
 	(goto (label read-eval-print-loop))
@@ -591,5 +625,7 @@ signal-error
 
 #|
 
+; a
+lookup-variable-value以外に、set-variable-value!やassignmentなどがある
 
 |#
