@@ -590,4 +590,36 @@ signal-error
 (start eceval)
 
 #|
+
+(define (factorial n)
+	(define (iter product counter)
+		(if (> counter n)
+		product
+		(iter (* counter product) (+ counter 1))))
+	(iter 1 1))
+
+(factorial 6)
+(factorial 7)
+(factorial 8)
+(factorial 9)
+(factorial 10)
+
+n	pushes	depth
+1	64		10
+2	99		10
+3	134		10
+4	169		10
+5	204		10
+6	239		10
+7	274		10
+8	309		10
+9	344		10
+10	379		10
+
+; a
+depth = 10
+
+; b
+pushes = 64 + 35 * (n - 1)
+
 |#
