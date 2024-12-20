@@ -591,4 +591,41 @@ signal-error
 
 #|
 
+(define (factorial n)
+	(if (= n 1) 1 (* (factorial (- n 1)) n)))
+
+(factorial 1)
+(factorial 2)
+(factorial 3)
+(factorial 4)
+(factorial 5)
+(factorial 6)
+(factorial 7)
+(factorial 8)
+(factorial 9)
+(factorial 10)
+
+n	pushes	depth
+1	16		8
+2	48		13
+3	80		18
+4	112		23
+5	144		28
+6	176		33
+7	208		38
+8	240		43
+9	272		48
+10	304		53
+
+pushes	= 16 + (n-1) * 32 = 32n - 16
+depth	= 3 + n * 5
+
+				max-depth	total-pushes
+階乗(rec)		5n + 3		32n - 16
+階乗(iter)		10			35n + 29
+
+recはメモリは使うがiterよりも計算速度が少し早い
+iterはメモリは定数だが、recよりも計算速度が少し遅い
+メモリの容量によるが計算速度はO(n)なのでiterの方が優れていると思う。
+
 |#
