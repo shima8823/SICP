@@ -341,6 +341,7 @@
 (define (last-operand? ops) (null? (cdr ops)))
 (define the-global-environment (setup-environment))
 (define (get-global-environment) the-global-environment)
+(define (no-more-exps? seq) (null? seq))
 (define eceval-operations
 	(list
 		(list 'adjoin-arg adjoin-arg)
@@ -393,6 +394,7 @@
 		(list 'true? true?)
 		(list 'user-print user-print)
 		(list 'variable? variable?)
+		(list 'no-more-exps? no-more-exps?)
 	))
 
 
@@ -505,21 +507,23 @@ ev-begin
 	(save continue)
 	(goto (label ev-sequence))
 ev-sequence
+	(test (op no-more-exps?) (reg unev))
+	(branch (label ev-sequence-end))
 	(assign exp (op first-exp) (reg unev))
-	(test (op last-exp?) (reg unev))
-	(branch (label ev-sequence-last-exp))
 	(save unev)
 	(save env)
 	(assign continue (label ev-sequence-continue))
 	(goto (label eval-dispatch))
+; 末尾再帰ではなくなると最後の値の評価でもenv, unevをsaveしてしまう
+; ->スタックの枯渇へ
 ev-sequence-continue
 	(restore env)
 	(restore unev)
 	(assign unev (op rest-exps) (reg unev))
 	(goto (label ev-sequence))
-ev-sequence-last-exp
+ev-sequence-end
 	(restore continue)
-	(goto (label eval-dispatch))
+	(goto (reg continue))
 ev-if
 	(save exp) ; 後で使うために式を保存
 	(save env)
@@ -590,4 +594,54 @@ signal-error
 (start eceval)
 
 #|
+
+(define (factorial n)
+	(define (iter product counter)
+		(if (> counter n)
+		product
+		(iter (* counter product) (+ counter 1))))
+	(iter 1 1))
+
+(define (factorial n)
+	(if (= n 1) 1 (* (factorial (- n 1)) n)))
+
+(factorial 1)
+(factorial 2)
+(factorial 3)
+(factorial 4)
+(factorial 5)
+(factorial 6)
+(factorial 7)
+(factorial 8)
+(factorial 9)
+(factorial 10)
+
+iter
+n	pushes	depth
+1	70		17
+2	107		20
+3	144		23
+4	181		26
+5	218		29
+6	255		32
+7	292		35
+8	329		38
+9	366		41
+10	403		44
+
+rec
+n	pushes	depth
+1	18		11
+2	52		19
+3	86		27
+4	120		35
+5	154		43
+6	188		51
+7	222		59
+8	256		67
+9	290		75
+10	324		83
+
+どちらもメモリが線形増加している
+
 |#
