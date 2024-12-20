@@ -628,4 +628,8 @@ signal-error
 ; a
 lookup-variable-value以外に、set-variable-value!やassignmentなどがある
 
+; b
+primitive errorは引数に適用する前に、その引数が適しているかvalidation
+http://community.schemewiki.org/?sicp-ex-5.30
+
 |#
