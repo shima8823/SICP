@@ -393,6 +393,7 @@
 		(list 'true? true?)
 		(list 'user-print user-print)
 		(list 'variable? variable?)
+		(list 'symbol? symbol?)
 	))
 
 
@@ -445,15 +446,29 @@ ev-lambda
 	(goto (reg continue))
 ev-application
 	(save continue)
-	(save env)
 	(assign unev (op operands) (reg exp))
 	(save unev)
 	(assign exp (op operator) (reg exp))
+	(test (op symbol?) (reg exp))
+	(branch (label ev-appl-symbol-operator))
+	(save env) ; operatorが記号の場合いらない
 	(assign continue (label ev-appl-did-operator))
 	(goto (label eval-dispatch))
+ev-appl-symbol-operator
+	(assign continue (label ev-appl-did-symbol-operator))
+	(goto (label eval-dispatch))
 ev-appl-did-operator
+	(restore env) ; operatorが記号の場合いらない
 	(restore unev)
-	(restore env)
+	(assign argl (op empty-arglist))
+	(assign proc (reg val))
+	; 非演算子がな買った場合の特別扱い
+	(test (op no-operands?) (reg unev))
+	(branch (label apply-dispatch))
+	(save proc)
+	(goto (label ev-appl-operand-loop))
+ev-appl-did-symbol-operator
+	(restore unev)
 	(assign argl (op empty-arglist))
 	(assign proc (reg val))
 	; 非演算子がな買った場合の特別扱い
@@ -593,5 +608,24 @@ signal-error
 (start eceval)
 
 #|
+
+(define simple +)
+(define (complex) +)
+
+(simple 2 3)
+(total-pushes = 7 maximum-depth = 5)
+((complex) 2 3)
+(total-pushes = 10 maximum-depth = 5)
+
+explicit-control-evaluator.rkt
+(simple 2 3)
+(total-pushes = 8 maximum-depth = 5)
+((complex) 2 3)
+(total-pushes = 11 maximum-depth = 6)
+
+; b
+確かにAlyssaの言う通りだが、元々のexplicit-control-evaluatorを詳細に変更しなければならなくなる。
+そうなると変更のコストが高くなってしまう。
+コンパイラの利点は変更点を整理でき作成者が変更するコストを下げることである。
 
 |#
