@@ -452,9 +452,12 @@ ev-application
 	(assign continue (label ev-appl-did-operator))
 	(goto (label eval-dispatch))
 ev-appl-did-operator
-	(restore unev) (restore env)
+	(restore unev)
+	(restore env)
 	(assign argl (op empty-arglist))
-	(assign proc (reg val)) (test (op no-operands?) (reg unev))
+	(assign proc (reg val))
+	; 非演算子がな買った場合の特別扱い
+	(test (op no-operands?) (reg unev))
 	(branch (label apply-dispatch))
 	(save proc)
 ev-appl-operand-loop
