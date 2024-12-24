@@ -263,6 +263,9 @@
 			'<procedure-env>))
 	(display object)))
 
+(define (display-insts compiled)
+	(map (lambda (inst) (display inst)(newline)) (caddr compiled)))
+
 ; #############################
 ; ## utils delay-interpreter ##
 ; #############################
