@@ -1,3 +1,5 @@
+; 良問 compilerの出力結果の比較で構造が理解しやすい
+
 #lang sicp
 
 (#%require "util_metacircular.rkt")
@@ -339,13 +341,155 @@
 				(statements seq2))))
 
 (display-insts
-(compile
-	'(define (factorial n)
-		(if (= n 1)
-			1
-			(* (factorial (- n 1)) n)))
-	'val
-	'next))
+	(compile
+		'(define (factorial n)
+			(define (iter product counter)
+				(if (> counter n)
+				product
+				(iter (* counter product)
+					  (+ counter 1))))
+			(iter 1 1))
+		'val
+		'next))
 
 #|
+
+;; factorial⼿続きを構築し、⼿続き本体のコードをスキップする
+(assign val (op make-compiled-procedure) (label entry1) (reg env))
+(goto (label after-lambda2))
+entry1  ; factorial への呼び出しはここから⼊ることになる
+(assign env (op compiled-procedure-env) (reg proc))
+(assign env (op extend-environment) (const (n)) (reg argl) (reg env))
+;; iter⼿続きを構築し、⼿続き本体のコードをスキップする
+(assign val (op make-compiled-procedure) (label entry3) (reg env))
+(goto (label after-lambda4))
+entry3
+(assign env (op compiled-procedure-env) (reg proc))
+(assign env (op extend-environment) (const (product counter)) (reg argl) (reg env))
+;; iter 実際の手続き本体開始
+(save continue)
+(save env)
+;; (> counter n) を計算
+(assign proc (op lookup-variable-value) (const >) (reg env))
+(assign val (op lookup-variable-value) (const n) (reg env))
+(assign argl (op list) (reg val))
+(assign val (op lookup-variable-value) (const counter) (reg env))
+(assign argl (op cons) (reg val) (reg argl))
+(test (op primitive-procedure?) (reg proc))
+(branch (label primitive-branch8))
+compiled-branch9
+(assign continue (label after-call10))
+(assign val (op compiled-procedure-entry) (reg proc))
+(goto (reg val))
+primitive-branch8
+(assign val (op apply-primitive-procedure) (reg proc) (reg argl))
+after-call10 ; val には (> counter n) の結果が⼊っている
+(restore env)
+(restore continue)
+(test (op false?) (reg val))
+(branch (label false-branch6))
+true-branch5 ; return product
+(assign val (op lookup-variable-value) (const product) (reg env))
+(goto (reg continue))
+false-branch6
+;; (iter (* counter product) (+ counter 1)) を計算して返す
+(assign proc (op lookup-variable-value) (const iter) (reg env))
+(save continue)
+(save proc)	; iter ⼿続きを保存する
+(save env) ;?
+; (+ counter 1)
+(assign proc (op lookup-variable-value) (const +) (reg env))
+(assign val (const 1))
+(assign argl (op list) (reg val))
+(assign val (op lookup-variable-value) (const counter) (reg env))
+(assign argl (op cons) (reg val) (reg argl))
+(test (op primitive-procedure?) (reg proc))
+(branch (label primitive-branch14))
+compiled-branch15
+(assign continue (label after-call16))
+(assign val (op compiled-procedure-entry) (reg proc))
+(goto (reg val))
+primitive-branch14
+(assign val (op apply-primitive-procedure) (reg proc) (reg argl))
+after-call16 ; (* counter product)
+(assign argl (op list) (reg val))
+(restore env)
+(save argl)
+(assign proc (op lookup-variable-value) (const *) (reg env))
+(assign val (op lookup-variable-value) (const product) (reg env))
+(assign argl (op list) (reg val))
+(assign val (op lookup-variable-value) (const counter) (reg env))
+(assign argl (op cons) (reg val) (reg argl))
+(test (op primitive-procedure?) (reg proc))
+(branch (label primitive-branch11))
+compiled-branch12
+(assign continue (label after-call13))
+(assign val (op compiled-procedure-entry) (reg proc))
+(goto (reg val))
+primitive-branch11
+(assign val (op apply-primitive-procedure) (reg proc) (reg argl))
+after-call13 ; 
+(restore argl)
+(assign argl (op cons) (reg val) (reg argl))
+(restore proc) ; iterを復元
+(restore continue)
+; iterを適用
+(test (op primitive-procedure?) (reg proc))
+(branch (label primitive-branch17))
+compiled-branch18
+(assign val (op compiled-procedure-entry) (reg proc))
+(goto (reg val))
+primitive-branch17
+(assign val (op apply-primitive-procedure) (reg proc) (reg argl))
+(goto (reg continue))
+after-call19
+after-if7
+after-lambda4
+;; ⼿続きを変数 iter に割り当てる
+(perform (op define-variable!) (const iter) (reg val) (reg env))
+(assign val (const ok))
+; iter への呼び出しはここから⼊ることになる
+(assign proc (op lookup-variable-value) (const iter) (reg env))
+(assign val (const 1))
+(assign argl (op list) (reg val))
+(assign val (const 1))
+(assign argl (op cons) (reg val) (reg argl))
+(test (op primitive-procedure?) (reg proc))
+(branch (label primitive-branch20))
+compiled-branch21
+(assign val (op compiled-procedure-entry) (reg proc))
+(goto (reg val))
+primitive-branch20
+(assign val (op apply-primitive-procedure) (reg proc) (reg argl))
+(goto (reg continue))
+after-call22
+after-lambda2
+;; ⼿続きを変数 factorial に割り当てる
+(perform (op define-variable!) (const factorial) (reg val) (reg env))
+(assign val (const ok))
+
+
+
+///// recursive
+;; factorial を適⽤
+...
+after-call14
+(restore argl)
+(restore proc)
+(restore continue)
+...
+
+///// iter
+;; iterを適用
+after-call
+restoreなし
+...
+
+recursiveはfactorial自身が終了するまでにfactorialそのものを呼び出すため
+after-callで呼び出すargl, proc, continueの3つのstackが1回の呼び出しで
+全てのfactorialが完了するまで積まれてしまう。
+
+iterはiter自身の計算が完了する前に全ての積まれているstackがrestoreしているので積まれない。
+
+
 |#
