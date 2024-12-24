@@ -1,5 +1,7 @@
 #lang sicp
 
+(#%require "util_metacircular.rkt")
+
 (define (compile exp target linkage)
 	(cond
 		((self-evaluating? exp)
@@ -335,3 +337,105 @@
 					(registers-modified seq2))
 		(append (statements seq1)
 				(statements seq2))))
+
+(compile
+	'(define (factorial n)
+		(if (= n 1)
+			1
+			(* (factorial (- n 1)) n)))
+	'val
+	'next)
+
+#|
+(
+;; ⼿続きを構築し、⼿続き本体のコードをスキップする
+ (assign val (op make-compiled-procedure) (label entry1) (reg env))
+ (goto (label after-lambda2))
+entry1	; factorial への呼び出しはここから⼊ることになる
+ (assign env (op compiled-procedure-env) (reg proc))
+ (assign env (op extend-environment) (const (n)) (reg argl) (reg env))
+ ;; 実際の⼿続き本体開始
+ (save continue)
+ (save env)
+ ;; (= n 1) を計算
+ (assign proc (op lookup-variable-value) (const =) (reg env))
+ (assign val (const 1))
+ (assign argl (op list) (reg val))
+ (assign val (op lookup-variable-value) (const n) (reg env))
+ (assign argl (op cons) (reg val) (reg argl))
+ (test (op primitive-procedure?) (reg proc))
+ (branch (label primitive-branch6))
+compiled-branch7
+ (assign continue (label after-call8))
+ (assign val (op compiled-procedure-entry) (reg proc))
+ (goto (reg val))
+primitive-branch6
+ (assign val (op apply-primitive-procedure) (reg proc) (reg argl))
+after-call8 ; val には (= n 1) の結果が⼊っている
+ (restore env)
+ (restore continue)
+ (test (op false?) (reg val))
+ (branch (label false-branch4))
+true-branch3 ; return 1
+ (assign val (const 1))
+ (goto (reg continue))
+false-branch4
+;; (* (factorial (- n 1)) n) を計算して返す
+ (assign proc (op lookup-variable-value) (const *) (reg env))
+ (save continue)
+ (save proc)	; * ⼿続きを保存する
+ (assign val (op lookup-variable-value) (const n) (reg env))
+ (assign argl (op list) (reg val))
+ (save argl)	; * の部分引数リストを保存
+;; *のもうひとつの引数である (factorial (- n 1)) を計算
+ (assign proc (op lookup-variable-value) (const factorial) (reg env))
+ (save proc)	; factorial ⼿続きを保存
+;; factorial の引数である (- n 1) を計算
+ (assign proc (op lookup-variable-value) (const -) (reg env))
+ (assign val (const 1))
+ (assign argl (op list) (reg val))
+ (assign val (op lookup-variable-value) (const n) (reg env))
+ (assign argl (op cons) (reg val) (reg argl))
+ (test (op primitive-procedure?) (reg proc))
+ (branch (label primitive-branch9))
+compiled-branch10
+ (assign continue (label after-call11))
+ (assign val (op compiled-procedure-entry) (reg proc))
+ (goto (reg val))
+primitive-branch9
+ (assign val (op apply-primitive-procedure) (reg proc) (reg argl))
+after-call11	; val には (- n 1) の結果が⼊っている
+ (assign argl (op list) (reg val))
+ (restore proc)	; factorial を復元
+;; factorial を適⽤
+ (test (op primitive-procedure?) (reg proc))
+ (branch (label primitive-branch12))
+compiled-branch13
+ (assign continue (label after-call14))
+ (assign val (op compiled-procedure-entry) (reg proc))
+ (goto (reg val))
+primitive-branch12
+ (assign val (op apply-primitive-procedure) (reg proc) (reg argl))
+after-call14	; val には (factorial (- n 1)) の結果が⼊っている
+ (restore argl)	; * の部分引数リストを復元
+ (assign argl (op cons) (reg val) (reg argl))
+ (restore proc)	; * を復元
+ (restore continue)
+;; * を適⽤し、その値を返す
+ (test (op primitive-procedure?) (reg proc))
+ (branch (label primitive-branch15))
+compiled-branch16
+;; ここの複合⼿続きは末尾再帰で呼ばれることに注意すること
+ (assign val (op compiled-procedure-entry) (reg proc))
+ (goto (reg val))
+primitive-branch15
+ (assign val (op apply-primitive-procedure) (reg proc) (reg argl))
+ (goto (reg continue))
+after-call17
+after-if5
+after-lambda2
+;; ⼿続きを変数 factorial に割り当てる
+ (perform (op define-variable!) (const factorial) (reg val) (reg env))
+ (assign val (const ok))
+)
+|#
