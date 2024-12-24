@@ -337,4 +337,39 @@
 					(registers-modified seq2))
 		(append (statements seq1)
 				(statements seq2))))
+(display-insts
+	(compile
+		'(define (factorial-alt n)
+			(if (= n 1)
+			1
+			(* n (factorial-alt (- n 1)))))
+		'val
+		'next))
 
+#|
+
+...
+false-branch4
+...
+/ 5_33
+(save env)
+(assign proc (op lookup-variable-value) (const factorial-alt) (reg env))
+/ compiler
+(assign val (op lookup-variable-value) (const n) (reg env))
+(assign argl (op list) (reg val))
+(save argl)
+(assign proc (op lookup-variable-value) (const factorial) (reg env))
+...
+after-call4
+/ 5_33
+(assign argl (op list) (reg val))
+(restore env)
+(assign val (op lookup-variable-value) (const n) (reg env))
+/ compiler
+(restore argl)
+...
+
+違いはfactorialが先に計算されるか、計算されないかの違い。
+実行効率についてはsave, restoreの回数がどちらも1回なので変わらない。
+
+|#
