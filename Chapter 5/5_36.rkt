@@ -109,9 +109,6 @@
 			(let ((p-code (compile (if-predicate exp) 'val 'next))
 				  (c-code (compile (if-consequent exp) target consequent-linkage))
 				  (a-code (compile (if-alternative exp) target linkage)))
-				(newline)
-				(display "p-code ")(display p-code)
-				(newline)
 				(preserving '(env continue) p-code
 					(append-instruction-sequences
 						(make-instruction-sequence '(val) '()
