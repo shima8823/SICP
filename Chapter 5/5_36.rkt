@@ -180,7 +180,7 @@
 				(compile-procedure-call target linkage)))))
 
 (define (construct-arglist operand-codes)
-	(let ((operand-codes (reverse operand-codes)))
+	(let ((operand-codes operand-codes)) ; change
 		(if (null? operand-codes)
 			(make-instruction-sequence '() '(argl)
 				'((assign argl (const ()))))
@@ -201,8 +201,9 @@
 			(preserving '(argl)
 				(car operand-codes)
 				(make-instruction-sequence '(val argl) '(argl)
-					'((assign argl
-						(op cons) (reg val) (reg argl)))))))
+					'((assign val (op list) (reg val))
+					  (assign argl
+						(op append) (reg argl) (reg val))))))) ; change
 		(if (null? (cdr operand-codes))
 			code-for-next-arg
 			(preserving '(env)
@@ -348,3 +349,16 @@
 			(+ x (g (+ x 2))))
 	'val
 	'next))
+
+#|
+
+Q. 組み合わせの被演算⼦に対してどのような評価順を⽣成するだろうか。
+A. 右から左(last-argが最初)である。
+Q. この順序はコンパイラのどこで決定されるだろうか。
+A. construct-arglistでoperands-codeをreverseにして右から左の順序を決定している。
+コンパイラを修正し、別の評価順を⽣成するようにせよ
+Q. 被演算⼦の評価順を変えると、
+	引数リストを構築するコードの効率にどのような影響があるだろうか。
+A. stackには影響がないが、consがappendに変更されているため、
+	consがO(1)でappendがO(n)だった場合、効率が悪くなる
+|#
