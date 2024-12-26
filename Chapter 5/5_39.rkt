@@ -338,6 +338,38 @@
 		(append (statements seq1)
 				(statements seq2))))
 
+; cdr-recはlist-refでもいいが、error-msgを固有のものにしたい。
+(define (lexical-address-lookup lexical-addres runtime-env)
+	(let ((frame-number (car lexical-address))
+		  (displacement-number (cdr lexical-address)))
+		(define (cdr-rec count target-list)
+			(if (= frame-number 0)
+				target-list
+				(let ((target-list (cdr target-list)))
+					(if (null? target-list)
+						(error "Invalid lexical-address LOOKUP" lexical-addres)
+						(cdr-rec (- count 1) target-list)))))
+		(let* ((frame (cdr-rec runtime-env frame-number))
+			   (val (cdr (cdr-rec frame displacement-number))))
+			(if (eq? val "*unassigned*")
+				(error "val is unassigned")
+				val))))
+
+; cdr-recはlist-refでもいいが、error-msgを固有のものにしたい。
+(define (lexical-address-set! lexical-addres val runtime-env)
+	(let ((frame-number (car lexical-address))
+		  (displacement-number (cdr lexical-address)))
+		(define (cdr-rec count target-list)
+			(if (= frame-number 0)
+				target-list
+				(let ((target-list (cdr target-list)))
+					(if (null? target-list)
+						(error "Invalid lexical-address: SET!" lexical-addres)
+						(cdr-rec (- count 1) target-list)))))
+		(let* ((frame (cdr-rec runtime-env frame-number))
+			   (old-val (cdr-rec frame displacement-number)))
+			(set-cdr! old-val val))))
+
 (display-insts
 (compile
 	'(define (factorial n)
