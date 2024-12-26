@@ -1,3 +1,5 @@
+; 良問 compilerの特殊形式の作成方法を理解できる
+
 #lang sicp
 
 (#%require "util_metacircular.rkt")
@@ -23,6 +25,12 @@
 				(begin-actions exp) target linkage))
 		((cond? exp)
 			(compile (cond->if exp) target linkage))
+		((+? exp)
+			(compile-big-basic exp target linkage))
+		((*? exp)
+			(compile-big-basic exp target linkage))
+		((basic? exp)
+			(compile-basic exp target linkage))
 		((application? exp)
 			(compile-application exp target linkage))
 		(else
@@ -230,7 +238,7 @@
 									(reg argl)))))))
 				after-call))))
 
-(define all-regs '(env proc val argl continue))
+(define all-regs '(env proc val argl continue arg1 arg2))
 
 (define (compile-proc-appl target linkage)
 	(cond
@@ -338,11 +346,161 @@
 		(append (statements seq1)
 				(statements seq2))))
 
+; a
+(define (spread-arguments operands)
+	(let ((first-code (compile (car operands) 'arg1 'next))
+		  (second-code (compile (cadr operands) 'arg2 'next)))
+		; (newline)
+		; (display "first ")
+		; (display first-code)
+		; (newline)
+		; (append-instruction-sequences 
+		(preserving
+			'(env)
+			first-code
+			(preserving
+				'(arg1)
+				second-code
+				(make-instruction-sequence '(arg1) '() '())))))
+
+; b
+(define (basic? exp) (memq (car exp) '(+ * = -)))
+
+(define (compile-basic exp target linkage)
+	; (newline)
+	; (newline)
+	; (display "spread ")
+	; (display (spread-arguments (operands exp)))
+	; (newline)
+	; (newline)
+	(end-with-linkage linkage
+		(append-instruction-sequences
+			(spread-arguments (operands exp))
+			(make-instruction-sequence '(arg1 arg2) (list target)
+				`((assign ,target
+						(op ,(car exp))
+						(reg arg1)
+						(reg arg2)))))))
+
+; d
+(define (+? exp) (tagged-list? exp '+))
+(define (*? exp) (tagged-list? exp '*))
+
+#|
+assign arg1
+	(op ,op)
+	(reg arg1)
+	(reg arg2)
+assign .target
+	(op ,op)
+	(reg arg1)
+	(reg arg2)
+
+|#
+
+(define (compile-big-basic exp target linkage)
+	(let ((op (operator exp))
+		  (operands (operands exp)))
+		(end-with-linkage linkage
+			(append-instruction-sequences
+				(spread-arguments operands)
+				(make-instruction-sequence '(arg1 arg2) (list 'arg1)
+					`((assign arg1
+							(op ,op)
+							(reg arg1)
+							(reg arg2))))
+				(spread-more op (cddr operands) target)))))
+
+; spred-arguments
+; assign arg1 (op +) arg1 arg2
+
+; null? operands
+; 	assign ,targe (reg arg1)
+; else
+; 	code compile (car operands) 'arg2
+; 	assign arg1 (op +) arg1 arg2
+
+(define (spread-more op operands target)
+	(if (null? operands)
+		(make-instruction-sequence '(arg1 arg2) (list target)
+			`((assign ,target
+					(reg arg1))))
+		(let ((more-code (compile (car operands) 'arg2 'next)))
+			(preserving '(arg1 env)
+				more-code
+				(append-instruction-sequences
+					(make-instruction-sequence '(arg1 arg2) (list 'arg1)
+						`((assign arg1
+								(op ,op)
+								(reg arg1)
+								(reg arg2))))
+					(spread-more op (cdr operands) target))))))
+
 (display-insts
 	(compile
-		'(define (factorial n)
-			(if (= n 1)
-				1
-				(* (factorial (- n 1)) n)))
+		'(define (func n)
+			(+ n (- n 1) (- n 2) (- n 3) (- n 4)))
 	'val
 	'next))
+
+; (display-insts
+; 	(compile
+; 		'(define (factorial n)
+; 			(if (= n 1)
+; 				1
+; 				(* (factorial (- n 1)) n)))
+; 	'val
+; 	'next))
+
+
+
+#|
+; c
+compare compiler.rkt
+とんでもない量の冗長なコードが削除されている
+
+
+(assign val (op make-compiled-procedure) (label entry1) (reg env))
+(goto (label after-lambda2))
+entry1
+(assign env (op compiled-procedure-env) (reg proc))
+(assign env (op extend-environment) (const (n)) (reg argl) (reg env))
+(assign arg1 (op lookup-variable-value) (const n) (reg env))
+(assign arg2 (const 1))
+(assign val (op =) (reg arg1) (reg arg2))
+(test (op false?) (reg val))
+(branch (label false-branch4))
+true-branch3
+(assign val (const 1))
+(goto (reg continue))
+false-branch4
+(save continue)
+(save env)
+(assign proc (op lookup-variable-value) (const factorial) (reg env))
+(assign arg1 (op lookup-variable-value) (const n) (reg env))
+(assign arg2 (const 1))
+(assign val (op -) (reg arg1) (reg arg2))
+(assign argl (op list) (reg val))
+(test (op primitive-procedure?) (reg proc))
+(branch (label primitive-branch6))
+compiled-branch7
+(assign continue (label proc-return9))
+(assign val (op compiled-procedure-entry) (reg proc))
+(goto (reg val))
+proc-return9
+(assign arg1 (reg val))
+(goto (label after-call8))
+primitive-branch6
+(assign arg1 (op apply-primitive-procedure) (reg proc) (reg argl))
+after-call8
+(restore env)
+(assign arg2 (op lookup-variable-value) (const n) (reg env))
+(assign val (op *) (reg arg1) (reg arg2))
+(restore continue)
+(goto (reg continue))
+after-if5
+after-lambda2
+(perform (op define-variable!) (const factorial) (reg val) (reg env))
+(assign val (const ok))
+
+|#
