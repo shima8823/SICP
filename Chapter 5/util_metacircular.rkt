@@ -142,7 +142,10 @@
 			(cond
 				((null? vars)
 					(env-loop (enclosing-environment env)))
-				((eq? var (car vars)) (car vals))
+				((eq? var (car vars)) ; internal define
+					(if (eq? (car vals) ''*unassigned*)
+						(error "Unassigned variable " var)
+						(car vals)))
 				(else (scan (cdr vars) (cdr vals)))))
 		(if (eq? env the-empty-environment)
 			(error " Unbound variable " var)
@@ -151,6 +154,35 @@
 					(frame-variables frame)
 					(frame-values frame)))))
 	(env-loop env))
+
+; internal define
+(define (scan-out-defines exp)
+	(define (get-defines exp)
+		(if (definition? (car exp))
+			(cons (car exp) (get-defines (cdr exp)))
+			'()))
+	(define (get-body exp)
+		(if (definition? (car exp))
+			(get-body (cdr exp))
+			(car exp)))
+	(if (definition? (car exp))
+		(list
+			(list
+				'let
+				(map
+					(lambda (def)
+						(list (definition-variable def) ''*unassigned*))
+					(get-defines exp))
+				(sequence->exp
+					(map
+						(lambda (def)
+							(list
+								'set!
+								(definition-variable def)
+								(definition-value def)))
+						(get-defines exp)))
+				(get-body exp)))
+		exp))
 
 (define (set-variable-value! var val env)
 (define (env-loop env)
