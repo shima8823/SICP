@@ -1,3 +1,5 @@
+; return コンパイラ実行環境(5.5.7)ができたら実行してみる。
+
 #lang sicp
 
 (#%require "util_metacircular.rkt")
