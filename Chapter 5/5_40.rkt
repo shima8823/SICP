@@ -339,7 +339,7 @@
 				(statements seq2))))
 
 ; cdr-recはlist-refでもいいが、error-msgを固有のものにしたい。
-(define (lexical-address-lookup lexical-addres runtime-env)
+(define (lexical-address-lookup lexical-address runtime-env)
 	(let ((frame-number (car lexical-address))
 		  (displacement-number (cdr lexical-address)))
 		(define (cdr-rec count target-list)
@@ -347,7 +347,7 @@
 				target-list
 				(let ((target-list (cdr target-list)))
 					(if (null? target-list)
-						(error "Invalid lexical-address LOOKUP" lexical-addres)
+						(error "Invalid lexical-address LOOKUP" lexical-address)
 						(cdr-rec (- count 1) target-list)))))
 		(let* ((frame (cdr-rec runtime-env frame-number))
 			   (val (cdr (cdr-rec frame displacement-number))))
@@ -356,7 +356,7 @@
 				val))))
 
 ; cdr-recはlist-refでもいいが、error-msgを固有のものにしたい。
-(define (lexical-address-set! lexical-addres val runtime-env)
+(define (lexical-address-set! lexical-address val runtime-env)
 	(let ((frame-number (car lexical-address))
 		  (displacement-number (cdr lexical-address)))
 		(define (cdr-rec count target-list)
@@ -364,7 +364,7 @@
 				target-list
 				(let ((target-list (cdr target-list)))
 					(if (null? target-list)
-						(error "Invalid lexical-address: SET!" lexical-addres)
+						(error "Invalid lexical-address: SET!" lexical-address)
 						(cdr-rec (- count 1) target-list)))))
 		(let* ((frame (cdr-rec runtime-env frame-number))
 			   (old-val (cdr-rec frame displacement-number)))
