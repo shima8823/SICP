@@ -10,7 +10,7 @@
 			(cond
 				((null? vars)
 					(env-loop (+ frame-count 1) (enclosing-environment env)))
-				((eq? var (car vars)) (list frame-count displacement-count))
+				((eq? var (car vars)) (cons frame-count displacement-count))
 				(else (scan (+ displacement-count 1) (cdr vars)))))
 		(if (eq? env the-empty-environment)
 			'not-found
