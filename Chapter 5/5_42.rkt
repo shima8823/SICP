@@ -370,6 +370,22 @@
 			   (old-val (cdr-rec frame displacement-number)))
 			(set-cdr! old-val val))))
 
+(define (find-variable var compile-time-env)
+	(define (env-loop frame-count env)
+		(define (scan displacement-count vars)
+			(cond
+				((null? vars)
+					(env-loop (+ frame-count 1) (enclosing-environment env)))
+				((eq? var (car vars)) (cons frame-count displacement-count))
+				(else (scan (+ displacement-count 1) (cdr vars)))))
+		(if (eq? env the-empty-environment)
+			'not-found
+			(let ((frame (first-frame env)))
+				(scan
+					0
+					frame))))
+	(env-loop 0 compile-time-env))
+
 (display-insts
 (compile
 	'((lambda (x y)
