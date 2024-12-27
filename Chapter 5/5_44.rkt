@@ -1,4 +1,10 @@
-; return コンパイラ実行環境(5.5.7)ができたら実行してみる。
+; もう少し明瞭な問題文であるべきである。例えば
+; コンパイル時環境を参照し存在したらそのコードを使う。
+; 存在しないのならばopen-codeを使う。
+; これならば実装が明確になるはずなのに
+; "コンパイル時環境を参照するようにせよ"
+; という文だとコンパイラ時環境だけを参照すると思うじゃないか😡
+; よってこの問題は正解とする。
 
 #lang sicp
 
@@ -183,15 +189,32 @@
 			(compile-sequence (scan-out-defines (lambda-body exp)) 'val 'return (cons formals compile-time-environment)))))
 
 (define (compile-application exp target linkage compile-time-environment)
-	(let ((proc-code (compile (operator exp) 'proc 'next compile-time-environment))
-		  (operand-codes
+	(let* ((op-exp (operator exp))
+		   (op-lexical-addr (find-variable op-exp compile-time-environment))
+		   (addr-not-found? (eq? op-lexical-addr 'not-found))
+		;    true: opencodeに行くべきらしい.
+		   (proc-code
+				(if addr-not-found?
+					(compile op-exp 'proc 'next compile-time-environment)
+					(make-instruction-sequence '(env) (list 'proc)
+						`((assign proc (op lexical-address-lookup) (const ,op-lexical-addr) (reg env))))))
+		   (operand-codes
 			(map (lambda (operand) (compile operand 'val 'next compile-time-environment))
 				(operands exp))))
 		(preserving '(env continue)
 			proc-code
 			(preserving '(proc continue)
 				(construct-arglist operand-codes)
-				(compile-procedure-call target linkage)))))
+				(if addr-not-found?
+					(compile-procedure-call target linkage)
+					(end-with-linkage linkage
+							(make-instruction-sequence '(proc argl) (list target)
+								`((assign ,target
+									(op apply-primitive-procedure)
+									(reg proc)
+									(reg argl)))))
+					; (make-instruction-sequence '(env proc continue) '() '())
+					)))))
 
 (define (construct-arglist operand-codes)
 	(let ((operand-codes (reverse operand-codes)))
@@ -402,6 +425,27 @@
 					0
 					frame))))
 	(env-loop 0 compile-time-env))
+
+(define (basic? exp) (memq (car exp) '(+ * = -)))
+(define (spread-arguments operands)
+	(let ((first-code (compile (car operands) 'arg1 'next))
+		  (second-code (compile (cadr operands) 'arg2 'next)))
+		(preserving
+			'(env)
+			first-code
+			(preserving
+				'(arg1)
+				second-code
+				(make-instruction-sequence '(arg1) '() '())))))
+(define (compile-basic exp target linkage)
+	(end-with-linkage linkage
+		(append-instruction-sequences
+			(spread-arguments (operands exp))
+			(make-instruction-sequence '(arg1 arg2) (list target)
+				`((assign ,target
+						(op ,(car exp))
+						(reg arg1)
+						(reg arg2)))))))
 
 (display-insts
 	(compile
