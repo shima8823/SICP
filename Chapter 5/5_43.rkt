@@ -1,3 +1,5 @@
+; return コンパイラ実行環境(5.5.7)ができたら実行してみる。
+
 #lang sicp
 
 (#%require "util_metacircular.rkt")
@@ -21,6 +23,8 @@
 		((begin? exp)
 			(compile-sequence
 				(begin-actions exp) target linkage compile-time-environment))
+		((let? exp)
+			(compile (let->combination exp) target linkage compile-time-environment))
 		((cond? exp)
 			(compile (cond->if exp) target linkage compile-time-environment))
 		((application? exp)
@@ -176,7 +180,7 @@
 						(const ,formals)
 						(reg argl)
 						(reg env))))
-			(compile-sequence (lambda-body exp) 'val 'return (cons formals compile-time-environment))))) ;change
+			(compile-sequence (scan-out-defines (lambda-body exp)) 'val 'return (cons formals compile-time-environment)))))
 
 (define (compile-application exp target linkage compile-time-environment)
 	(let ((proc-code (compile (operator exp) 'proc 'next compile-time-environment))
@@ -364,7 +368,7 @@
 						(cdr-rec (- count 1) target-list)))))
 		(let* ((frame (cdr-rec runtime-env frame-number))
 			   (val (cdr (cdr-rec frame displacement-number))))
-			(if (eq? val "*unassigned*")
+			(if (eq? val ''*unassigned*)
 				(error "val is unassigned")
 				val))))
 
@@ -401,14 +405,10 @@
 
 (display-insts
 (compile
-	'((lambda (x y)
-		(lambda (a b c d e)
-			(set! x y)
-			((lambda (y z) (* x y z))
-				(* a b x)
-				(+ c d x ))))
-		3
-		4)
+	'(define (f x)
+		(define (even? n) (if (= n 0) true (odd? (- n 1))))
+		(define (odd? n) (if (= n 0) false (even? (- n 1))))
+		(even? 2))
 	'val
 	'next
 	'()))
