@@ -693,14 +693,19 @@
 ; ### compile end ###
 ; ###################
 
+; ########################################
+; ### 5.5.7 connect compiler evaluator ###
+; ########################################
+
 (define (user-print object)
-	(if (compound-procedure? object)
-		(display (list
-			'compound-procedure
-			(procedure-parameters object)
-			(procedure-body object)
-			'<procedure-env>))
-	(display object)))
+	(cond ((compound-procedure? object)
+			(display (list 'compound-procedure
+						(procedure-parameters object)
+						(procedure-body object)
+						'<procedure-env>)))
+		  ((compiled-procedure? object)
+			(display '<compiled-procedure>))
+		  (else (display object))))
 
 (define eceval-operations
 	(list
@@ -754,6 +759,15 @@
 		(list 'true? true?)
 		(list 'user-print user-print)
 		(list 'variable? variable?)
+; add
+		(list 'make-compiled-procedure make-compiled-procedure)
+		(list 'compiled-procedure? compiled-procedure?)
+		(list 'compiled-procedure-entry compiled-procedure-entry)
+		(list 'compiled-procedure-env compiled-procedure-env)
+		(list 'list list)
+		(list 'cons cons)
+		(list 'true? true?)
+		(list 'false? false?)
 	))
 
 (define eceval
@@ -761,6 +775,8 @@
 		'(exp env val continue proc argl unev)
 		eceval-operations
 		'(
+; add
+	(branch (label external-entry)) ; flag が設定されていれば分岐する
 read-eval-print-loop
 	(perform (op initialize-stack))
 	(perform
@@ -846,7 +862,16 @@ apply-dispatch
 	(branch (label primitive-apply))
 	(test (op compound-procedure?) (reg proc))
 	(branch (label compound-apply))
+; add
+	(test (op compiled-procedure?) (reg proc))
+	(branch (label compiled-apply))
+;
 	(goto (label unknown-procedure-type))
+; add
+compiled-apply
+	(restore continue)
+	(assign val (op compiled-procedure-entry) (reg proc))
+	(goto (reg val))
 primitive-apply
 	(assign val (op apply-primitive-procedure)
 	(reg proc)
@@ -945,4 +970,33 @@ unknown-procedure-type
 signal-error
 	(perform (op user-print) (reg val))
 	(goto (label read-eval-print-loop))
+; add
+external-entry
+	(perform (op initialize-stack))
+	(assign env (op get-global-environment))
+	(assign continue (label print-result))
+	(goto (reg val))
 	)))
+
+(define (compile-and-go expression)
+	(let ((instructions
+			(assemble
+				(statements
+					(compile expression 'val 'return))
+				eceval)))
+		(set! the-global-environment (setup-environment))
+		(set-register-contents! eceval 'val instructions)
+		(set-register-contents! eceval 'flag true)
+		(start eceval)))
+
+; compileしない通常のstart
+(define (start-eceval)
+	(set! the-global-environment (setup-environment))
+	(set-register-contents! eceval 'flag false)
+	(start eceval))
+
+(compile-and-go
+	'(define (factorial n)
+		(if (= n 1)
+		1
+		(* (factorial (- n 1)) n))))
