@@ -566,19 +566,23 @@
 			(append-instruction-sequences
 				(make-instruction-sequence '(proc) '()
 					`((test (op primitive-procedure?) (reg proc))
-					  (branch (label ,primitive-branch))))
+					  (branch (label ,primitive-branch))
+					  (test (op compiled-procedure?) (reg proc))
+					  (branch (label ,compiled-branch))))
 				(parallel-instruction-sequences
-					(append-instruction-sequences
-						compiled-branch
-						(compile-proc-appl target compiled-linkage))
-					(append-instruction-sequences
-						primitive-branch
-						(end-with-linkage linkage
-							(make-instruction-sequence '(proc argl) (list target)
-								`((assign ,target
-									(op apply-primitive-procedure)
-									(reg proc)
-									(reg argl)))))))
+					(compound-proc-appl target compiled-linkage)
+					(parallel-instruction-sequences
+						(append-instruction-sequences
+							compiled-branch
+							(compile-proc-appl target compiled-linkage))
+						(append-instruction-sequences
+							primitive-branch
+							(end-with-linkage linkage
+								(make-instruction-sequence '(proc argl) (list target)
+									`((assign ,target
+										(op apply-primitive-procedure)
+										(reg proc)
+										(reg argl))))))))
 				after-call))))
 
 (define all-regs '(env proc val argl continue))
@@ -609,6 +613,34 @@
 				'((assign val (op compiled-procedure-entry)
 					(reg proc))
 				  (goto (reg val)))))
+	((and (not (eq? target 'val))
+		  (eq? linkage 'return))
+		(error "return linkage,target not val: COMPILE"
+			target))))
+
+(define (compound-proc-appl target linkage)
+	(cond
+		((and (eq? target 'val) (not (eq? linkage 'return)))
+			(make-instruction-sequence '(proc) all-regs
+				`((assign continue (label ,linkage))
+				  (save continue)
+				  (goto (reg compapp)))))
+		((and (not (eq? target 'val))
+			  (not (eq? linkage 'return)))
+			(let ((proc-return (make-label 'proc-return)))
+				(make-instruction-sequence '(proc) all-regs
+					`((assign continue (label ,proc-return))
+					  (save continue)
+					  (goto (reg compapp))
+					  ,proc-return
+					  (assign ,target (reg val))
+					  (goto (label ,linkage))))))
+		((and (eq? target 'val) (eq? linkage 'return))
+			(make-instruction-sequence
+				'(proc continue)
+				all-regs
+				'((save continue)
+				  (goto (reg compapp)))))
 	((and (not (eq? target 'val))
 		  (eq? linkage 'return))
 		(error "return linkage,target not val: COMPILE"
@@ -772,10 +804,10 @@
 
 (define eceval
 	(make-machine
-		'(exp env val continue proc argl unev)
+		'(exp env val continue proc argl unev compapp)
 		eceval-operations
 		'(
-; add
+	(assign compapp (label compound-apply))
 	(branch (label external-entry)) ; flag が設定されていれば分岐する
 read-eval-print-loop
 	(perform (op initialize-stack))
@@ -996,7 +1028,11 @@ external-entry
 	(start eceval))
 
 (compile-and-go
-	'(define (factorial n)
-		(if (= n 1)
-		1
-		(* (factorial (- n 1)) n))))
+	'(define (f) (g)))
+
+#|
+
+(define (g) (display "g called"))
+(define (g) 'gdone)
+
+|#
