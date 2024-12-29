@@ -707,6 +707,11 @@
 			(display '<compiled-procedure>))
 		  (else (display object))))
 
+(define (assemble-compiled exp)
+	(assemble
+		(statements (compile exp 'val 'return))
+		repl-machine))
+
 (define eceval-operations
 	(list
 		(list 'adjoin-arg adjoin-arg)
@@ -768,6 +773,7 @@
 		(list 'cons cons)
 		(list 'true? true?)
 		(list 'false? false?)
+		(list 'assemble-compiled assemble-compiled)
 	))
 
 (define eceval
@@ -995,8 +1001,27 @@ external-entry
 	(set-register-contents! eceval 'flag false)
 	(start eceval))
 
-(compile-and-go
-	'(define (factorial n)
-		(if (= n 1)
-		1
-		(* (factorial (- n 1)) n))))
+
+
+(define repl-machine
+	(make-machine
+		'(exp env val continue proc argl unev)
+		eceval-operations
+		'(
+		read-eval-print-loop
+			(perform (op initialize-stack))
+			(perform
+				(op prompt-for-input) (const ";;; REPL-MACHINE-Eval input :"))
+			(assign exp (op read))
+			(assign env (op get-global-environment))
+			(assign continue (label print-result))
+			(assign val (op assemble-compiled) (reg exp))
+			(goto (reg val))
+		print-result
+			(perform (op print-stack-statistics))
+			(perform (op announce-output) (const ";;; REPL-MACHINE-Eval value :"))
+			(perform (op user-print) (reg val))
+			(goto (label read-eval-print-loop))
+		)))
+
+(start repl-machine)
