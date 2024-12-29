@@ -707,6 +707,17 @@
 			(display '<compiled-procedure>))
 		  (else (display object))))
 
+(define (compile-and-run? exp) (tagged-list? exp 'compile-and-run))
+(define (assemble-compiled exp)
+	; (display (assemble
+	; 	(statements (compile (cadr exp) 'val 'return))
+	; 	eceval))
+	; (display (compile (cadr exp) 'val 'return))
+	; (display (cadr exp))
+	(assemble
+		(statements (compile (text-of-quotation (cadr exp)) 'val 'return))
+		eceval))
+
 (define eceval-operations
 	(list
 		(list 'adjoin-arg adjoin-arg)
@@ -768,6 +779,9 @@
 		(list 'cons cons)
 		(list 'true? true?)
 		(list 'false? false?)
+
+		(list 'compile-and-run? compile-and-run?)
+		(list 'assemble-compiled assemble-compiled)
 	))
 
 (define eceval
@@ -802,6 +816,8 @@ eval-dispatch
 	(branch (label ev-lambda))
 	(test (op begin?) (reg exp))
 	(branch (label ev-begin))
+	(test (op compile-and-run?) (reg exp))
+	(branch (label ev-compile-and-run))
 	(test (op application?) (reg exp))
 	(branch (label ev-application))
 	(goto (label unknown-expression-type))
@@ -954,6 +970,11 @@ ev-definition-1
 	(perform (op define-variable!) (reg unev) (reg val) (reg env))
 	(assign val (const ok))
 	(goto (reg continue))
+ev-compile-and-run
+	; (assign continue (label print-result))
+	; (save continue)
+	(assign val (op assemble-compiled) (reg exp))
+	(goto (reg val))
 ; 5.4.4
 print-result
 	(perform (op print-stack-statistics))
@@ -984,6 +1005,9 @@ external-entry
 				(statements
 					(compile expression 'val 'return))
 				eceval)))
+		(display expression)
+		; (display instructions)
+		; (display (compile expression 'val 'return))
 		(set! the-global-environment (setup-environment))
 		(set-register-contents! eceval 'val instructions)
 		(set-register-contents! eceval 'flag true)
@@ -995,8 +1019,20 @@ external-entry
 	(set-register-contents! eceval 'flag false)
 	(start eceval))
 
-(compile-and-go
+(start-eceval)
+
+; (compile-and-go
+; 	'(define (factorial n)
+; 		(if (= n 1) 1 (* (factorial (- n 1)) n))))
+
+#|
+
+"基本手続きとして追加する"と書いてあるが、まあいいでしょう
+
+(compile-and-run
 	'(define (factorial n)
-		(if (= n 1)
-		1
-		(* (factorial (- n 1)) n))))
+		(if (= n 1) 1 (* (factorial (- n 1)) n))))
+
+(factorial 5)
+
+|#
